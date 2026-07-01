@@ -1,0 +1,48 @@
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+coverage/
+
+android/.gradle/
+android/app/debug
+android/app/profile
+android/app/release
+
+ios/Flutter/.last_build_id
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Pods/
+
+macos/Flutter/ephemeral/
+linux/flutter/ephemeral/
+windows/flutter/ephemeral/
+
+*.iml
+*.log
+*.tmp
+.idea/
+.vscode/
+# Local debug captures
+/evoly_*.png
+/evoly_*.xml
+/flutter_*.log
+
+# Local databases and exported runtime state
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.sqlite-journal
+
+# Local environment files
+.env
+.env.*
+!.env.example
+# Python cache
+__pycache__/
+*.py[cod]
