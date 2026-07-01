@@ -373,14 +373,35 @@ class _CompletionChartCard extends StatelessWidget {
     final theme = Theme.of(context);
     final points = _buildWeekPoints(items);
     final total = points.fold<int>(0, (sum, point) => sum + point.count);
-    final colors = [
-      theme.colorScheme.primary,
-      theme.colorScheme.secondary,
-      theme.colorScheme.tertiary,
-      theme.colorScheme.error,
-      theme.colorScheme.primaryContainer,
-      theme.colorScheme.secondaryContainer,
-      theme.colorScheme.tertiaryContainer,
+    const piePalette = [
+      _ChartSliceStyle(
+        start: Color(0xFF5EEAD4),
+        end: Color(0xFF34D399),
+      ),
+      _ChartSliceStyle(
+        start: Color(0xFF60A5FA),
+        end: Color(0xFFA78BFA),
+      ),
+      _ChartSliceStyle(
+        start: Color(0xFFFF8A80),
+        end: Color(0xFFFFC078),
+      ),
+      _ChartSliceStyle(
+        start: Color(0xFFF472B6),
+        end: Color(0xFFFB7185),
+      ),
+      _ChartSliceStyle(
+        start: Color(0xFFFBBF24),
+        end: Color(0xFFFDE68A),
+      ),
+      _ChartSliceStyle(
+        start: Color(0xFFC084FC),
+        end: Color(0xFF818CF8),
+      ),
+      _ChartSliceStyle(
+        start: Color(0xFF22D3EE),
+        end: Color(0xFF38BDF8),
+      ),
     ];
 
     return Card(
@@ -429,7 +450,7 @@ class _CompletionChartCard extends StatelessWidget {
                 style: theme.textTheme.bodyMedium,
               )
             else if (mode == _CompletionChartMode.pie)
-              _CompletionPieChart(points: points, colors: colors)
+              _CompletionPieChart(points: points, palette: piePalette)
             else
               _CompletionLineChart(points: points),
           ],
@@ -461,11 +482,11 @@ class _CompletionChartCard extends StatelessWidget {
 class _CompletionPieChart extends StatelessWidget {
   const _CompletionPieChart({
     required this.points,
-    required this.colors,
+    required this.palette,
   });
 
   final List<_DailyCompletionPoint> points;
-  final List<Color> colors;
+  final List<_ChartSliceStyle> palette;
 
   @override
   Widget build(BuildContext context) {
@@ -476,7 +497,7 @@ class _CompletionPieChart extends StatelessWidget {
         SizedBox(
           height: 180,
           child: CustomPaint(
-            painter: _PieChartPainter(points: points, colors: colors),
+            painter: _PieChartPainter(points: points, palette: palette),
             child: const SizedBox.expand(),
           ),
         ),
@@ -487,7 +508,7 @@ class _CompletionPieChart extends StatelessWidget {
           children: [
             for (final point in activePoints)
               _ChartLegendItem(
-                color: colors[points.indexOf(point) % colors.length],
+                style: palette[points.indexOf(point) % palette.length],
                 label: '${point.label} ${point.count}',
               ),
           ],
@@ -538,11 +559,11 @@ class _CompletionLineChart extends StatelessWidget {
 
 class _ChartLegendItem extends StatelessWidget {
   const _ChartLegendItem({
-    required this.color,
+    required this.style,
     required this.label,
   });
 
-  final Color color;
+  final _ChartSliceStyle style;
   final String label;
 
   @override
@@ -554,7 +575,11 @@ class _ChartLegendItem extends StatelessWidget {
           width: 10,
           height: 10,
           decoration: BoxDecoration(
-            color: color,
+            gradient: LinearGradient(
+              colors: [style.start, style.end],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
             shape: BoxShape.circle,
           ),
         ),
@@ -568,11 +593,11 @@ class _ChartLegendItem extends StatelessWidget {
 class _PieChartPainter extends CustomPainter {
   const _PieChartPainter({
     required this.points,
-    required this.colors,
+    required this.palette,
   });
 
   final List<_DailyCompletionPoint> points;
-  final List<Color> colors;
+  final List<_ChartSliceStyle> palette;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -593,18 +618,40 @@ class _PieChartPainter extends CustomPainter {
       }
 
       final sweepAngle = point.count / total * math.pi * 2;
+      final style = palette[index % palette.length];
       final paint = Paint()
         ..style = PaintingStyle.fill
-        ..color = colors[index % colors.length];
-      canvas.drawArc(rect, startAngle, sweepAngle, true, paint);
+        ..shader = LinearGradient(
+          colors: [style.start, style.end],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ).createShader(rect);
+      canvas.drawArc(rect.deflate(1), startAngle, sweepAngle, true, paint);
+
+      final dividerPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = Colors.white.withValues(alpha: 0.72);
+      canvas.drawArc(
+          rect.deflate(1), startAngle, sweepAngle, true, dividerPaint);
       startAngle += sweepAngle;
     }
   }
 
   @override
   bool shouldRepaint(covariant _PieChartPainter oldDelegate) {
-    return oldDelegate.points != points || oldDelegate.colors != colors;
+    return oldDelegate.points != points || oldDelegate.palette != palette;
   }
+}
+
+class _ChartSliceStyle {
+  const _ChartSliceStyle({
+    required this.start,
+    required this.end,
+  });
+
+  final Color start;
+  final Color end;
 }
 
 class _LineChartPainter extends CustomPainter {

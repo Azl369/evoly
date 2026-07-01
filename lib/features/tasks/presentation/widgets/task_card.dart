@@ -29,33 +29,43 @@ class TaskCard extends StatelessWidget {
       color: task.isCompleted ? colors.onPrimaryContainer : null,
     );
 
-    return AnimatedContainer(
-      duration: MotionTokens.normal,
-      curve: MotionTokens.standard,
-      child: Card(
-        color: task.isCompleted ? colors.primaryContainer : null,
-        child: ListTile(
-          leading: AnimatedSwitcher(
-            duration: MotionTokens.fast,
-            child: task.isCompleted
-                ? Icon(
-                    Icons.check_circle_rounded,
-                    key: const ValueKey('done'),
-                    color: colors.primary,
-                  )
-                : IconButton(
-                    key: const ValueKey('todo'),
-                    onPressed: onComplete,
-                    icon: const Icon(Icons.radio_button_unchecked_rounded),
-                  ),
-          ),
-          title: Text(task.title, style: titleStyle),
-          subtitle: Text(_subtitle, style: subtitleStyle),
-          trailing: trailing,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.xs,
-          ),
+    final cardRadius = BorderRadius.circular(16);
+
+    return Card(
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      clipBehavior: Clip.none,
+      color: task.isCompleted
+          ? colors.primaryContainer.withValues(alpha: 0.72)
+          : colors.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: cardRadius,
+        side: BorderSide(
+          color: colors.outlineVariant.withValues(alpha: 0.52),
+        ),
+      ),
+      child: ListTile(
+        leading: AnimatedSwitcher(
+          duration: MotionTokens.fast,
+          child: task.isCompleted
+              ? Icon(
+                  Icons.check_circle_rounded,
+                  key: const ValueKey('done'),
+                  color: colors.primary,
+                )
+              : IconButton(
+                  key: const ValueKey('todo'),
+                  onPressed: onComplete,
+                  icon: const Icon(Icons.radio_button_unchecked_rounded),
+                ),
+        ),
+        title: Text(task.title, style: titleStyle),
+        subtitle: Text(_subtitle, style: subtitleStyle),
+        trailing: trailing,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.xs,
         ),
       ),
     );

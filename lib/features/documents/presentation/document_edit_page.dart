@@ -3,6 +3,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:evoly/app/router.dart';
+import 'package:evoly_markdown_music_preview/evoly_markdown_music_preview.dart';
 import 'package:evoly/features/documents/data/document_repository.dart';
 import 'package:evoly/features/documents/domain/evoly_document.dart';
 import 'package:evoly/features/documents/presentation/markdown_math_support.dart';
@@ -34,6 +35,7 @@ class DocumentEditPage extends StatefulWidget {
 class _DocumentEditPageState extends State<DocumentEditPage> {
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
+  final _contentFocusNode = FocusNode();
   final _uuid = const Uuid();
   var _loading = true;
   var _saving = false;
@@ -68,6 +70,7 @@ class _DocumentEditPageState extends State<DocumentEditPage> {
   void dispose() {
     _titleController.dispose();
     _contentController.dispose();
+    _contentFocusNode.dispose();
     super.dispose();
   }
 
@@ -189,12 +192,16 @@ class _DocumentEditPageState extends State<DocumentEditPage> {
               onOpenGoal: _openLinkedGoal,
             ),
             const SizedBox(height: AppSpacing.md),
+            _DocumentEditorToolbar(
+              onInsertMusicBlock: _insertMusicBlockTemplate,
+            ),
+            const SizedBox(height: AppSpacing.sm),
             Expanded(
               child: TextField(
                 controller: _contentController,
+                focusNode: _contentFocusNode,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      height: 1.55,
-                      letterSpacing: 0.1,
+                      height: 1.46,
                     ),
                 expands: true,
                 maxLines: null,
@@ -493,6 +500,80 @@ class _DocumentEditPageState extends State<DocumentEditPage> {
 
     setState(() => _dirty = true);
   }
+
+  void _insertMusicBlockTemplate(MarkdownMusicBlockTemplate template) {
+    final currentText = _contentController.text;
+    final selection = _normalizedContentSelection(currentText);
+    final insertion = _formatMarkdownBlockInsertion(
+      currentText: currentText,
+      selection: selection,
+      block: template.fencedSource,
+    );
+    final nextText = currentText.replaceRange(
+      selection.start,
+      selection.end,
+      insertion,
+    );
+    final cursorOffset = selection.start + insertion.length;
+
+    _contentController.value = TextEditingValue(
+      text: nextText,
+      selection: TextSelection.collapsed(offset: cursorOffset),
+      composing: TextRange.empty,
+    );
+    _contentFocusNode.requestFocus();
+  }
+
+  TextSelection _normalizedContentSelection(String text) {
+    final selection = _contentController.selection;
+    if (!selection.isValid || selection.start < 0 || selection.end < 0) {
+      return TextSelection.collapsed(offset: text.length);
+    }
+
+    var start = selection.start;
+    var end = selection.end;
+    if (start > text.length) {
+      start = text.length;
+    }
+    if (end > text.length) {
+      end = text.length;
+    }
+    if (start > end) {
+      final originalStart = start;
+      start = end;
+      end = originalStart;
+    }
+
+    return TextSelection(baseOffset: start, extentOffset: end);
+  }
+
+  String _formatMarkdownBlockInsertion({
+    required String currentText,
+    required TextSelection selection,
+    required String block,
+  }) {
+    final before = currentText.substring(0, selection.start);
+    final after = currentText.substring(selection.end);
+    var insertion = block.trimRight();
+
+    if (before.isNotEmpty && !before.endsWith('\n\n')) {
+      if (before.endsWith('\n')) {
+        insertion = '\n$insertion';
+      } else {
+        insertion = '\n\n$insertion';
+      }
+    }
+
+    if (after.isNotEmpty && !after.startsWith('\n\n')) {
+      if (after.startsWith('\n')) {
+        insertion = '$insertion\n';
+      } else {
+        insertion = '$insertion\n\n';
+      }
+    }
+
+    return insertion;
+  }
 }
 
 class DocumentEditArguments {
@@ -509,6 +590,79 @@ class DocumentEditArguments {
   final String? initialTitle;
   final String? initialContentMarkdown;
   final DocumentType initialType;
+}
+
+class _DocumentEditorToolbar extends StatelessWidget {
+  const _DocumentEditorToolbar({
+    required this.onInsertMusicBlock,
+  });
+
+  final ValueChanged<MarkdownMusicBlockTemplate> onInsertMusicBlock;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: PopupMenuButton<MarkdownMusicBlockTemplate>(
+        tooltip: '插入音乐谱块',
+        icon: const Icon(Icons.library_music_outlined),
+        onSelected: onInsertMusicBlock,
+        itemBuilder: (context) {
+          return [
+            for (final template in MarkdownMusicTemplates.all)
+              PopupMenuItem(
+                value: template,
+                child: _MusicTemplateMenuItem(template: template),
+              ),
+          ];
+        },
+      ),
+    );
+  }
+}
+
+class _MusicTemplateMenuItem extends StatelessWidget {
+  const _MusicTemplateMenuItem({required this.template});
+
+  final MarkdownMusicBlockTemplate template;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      children: [
+        Icon(
+          _templateIcon(template.kind),
+          color: theme.colorScheme.primary,
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(template.label, style: theme.textTheme.bodyMedium),
+              Text(
+                template.description,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  IconData _templateIcon(MarkdownMusicTemplateKind kind) {
+    return switch (kind) {
+      MarkdownMusicTemplateKind.chordpro => Icons.queue_music_rounded,
+      MarkdownMusicTemplateKind.tab => Icons.view_week_rounded,
+      MarkdownMusicTemplateKind.abc => Icons.music_note_rounded,
+    };
+  }
 }
 
 class _LinkedGoalsSection extends StatelessWidget {
@@ -603,21 +757,27 @@ class _DocumentPreview extends StatelessWidget {
         child: Markdown(
           padding: const EdgeInsets.all(AppSpacing.md),
           data: '# $displayTitle\n\n> ${type.label}\n\n$content',
-          blockSyntaxes: MarkdownMathSupport.blockSyntaxes,
+          blockSyntaxes: [
+            ...MarkdownMathSupport.blockSyntaxes,
+            ...MarkdownMusicSupport.blockSyntaxes(),
+          ],
           inlineSyntaxes: MarkdownMathSupport.inlineSyntaxes(),
-          builders: MarkdownMathSupport.builders(),
+          builders: {
+            ...MarkdownMathSupport.builders(),
+            ...MarkdownMusicSupport.builders(),
+          },
           styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
             h1: theme.textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              height: 1.25,
+              fontWeight: FontWeight.w600,
+              height: 1.22,
             ),
             h2: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-              height: 1.35,
+              fontWeight: FontWeight.w600,
+              height: 1.28,
             ),
             h3: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              height: 1.4,
+              fontWeight: FontWeight.w600,
+              height: 1.3,
             ),
             p: bodyStyle,
             listBullet: bodyStyle,

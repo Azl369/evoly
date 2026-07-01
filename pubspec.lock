@@ -89,6 +89,15 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "2.0.8"
+  evoly_markdown_music_preview:
+    dependency: "direct main"
+    description:
+      path: "."
+      ref: main
+      resolved-ref: "8fd18232272444f8773dc6757ec470c100b3b792"
+      url: "git@github.com-evoly:Azl369/evoly-markdown-music-preview.git"
+    source: git
+    version: "0.1.0"
   fake_async:
     dependency: transitive
     description:

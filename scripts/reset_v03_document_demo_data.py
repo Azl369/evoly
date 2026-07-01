@@ -56,7 +56,7 @@ def main() -> None:
 
     reset_demo_data(db_path)
     print(f"已重置 Evoly V0.3 文档库演示数据：{db_path}")
-    print("包含：3 个演示目标、7 个子任务、5 篇 Markdown 文档、4 条目标关联。")
+    print("包含：3 个演示目标、7 个子任务、6 篇 Markdown 文档、5 条目标关联。")
 
 
 def parse_args() -> argparse.Namespace:
@@ -480,6 +480,65 @@ Nobi 暂定为独立卡通形象，不和 App 图标强绑定。
 1. 项目总结模板。
 2. 目标详情查看全部文档。
 3. 文档导出 Markdown。
+""",
+        ),
+        DemoDocument(
+            id="demo-v031-doc-music-preview",
+            title="Markdown 音乐谱块测试：和弦、TAB 与 ABC",
+            type="knowledge",
+            updated_offset_hours=6,
+            linked_goal_ids=("demo-v031-goal-docs",),
+            content_markdown="""# Markdown 音乐谱块测试
+
+这篇文档用于测试 Evoly 文档预览中的音乐谱块能力：ChordPro、吉他 TAB 和 ABC 简谱。
+
+## 1. ChordPro 和弦谱
+
+```chordpro
+{title: Evoly Practice Loop}
+{key: C}
+{tempo: 76}
+
+[C]今天先做一点点
+[G]不要急着证明自己
+[Am]稳定推进 [F]慢慢进化
+```
+
+## 2. 吉他 TAB
+
+```tab
+title: C major scale warmup
+tuning: E A D G B e
+tempo: 80
+
+e|----------------0-1-3-|
+B|------------0-1-------|
+G|--------0-2-----------|
+D|----0-2---------------|
+A|0-3-------------------|
+E|----------------------|
+```
+
+## 3. ABC 简谱
+
+```abc
+X:1
+T:C Major Scale
+M:4/4
+L:1/4
+Q:1/4=80
+K:C
+C D E F | G A B c |
+```
+
+## 4. 混合 Markdown
+
+- [x] 和弦谱能渲染
+- [x] TAB 能渲染
+- [x] ABC 能渲染
+- [ ] 后续再考虑播放、节拍器或导出
+
+数学公式仍然应该正常显示：$E = mc^2$。
 """,
         ),
     ]

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 import 'package:evoly/app/router.dart';
 import 'package:evoly/core/domain/priority.dart';
@@ -82,76 +83,103 @@ class _TodayPageState extends State<TodayPage> {
       );
     }
 
-    return ListView(
+    final listEntries = _todayListEntries;
+
+    return ListView.builder(
+      scrollCacheExtent: const ScrollCacheExtent.pixels(720),
       padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('今天最重要的事', style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                '保持小步前进，别让目标躺平。',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              AnimatedProgressBar(value: progress),
-              const SizedBox(height: AppSpacing.md),
-              _CoachInsightCard(
-                insight: _coachInsight,
-                expanded: _coachExpanded,
-                onToggleExpanded: () {
-                  setState(() => _coachExpanded = !_coachExpanded);
-                },
-                onCreateFirstAction: () {
-                  _openTopLevelDestination(1, AppRoutes.goals);
-                },
-                onOpenFirstTopTask: _openFirstCoachTask,
-                onKeepOnlyTopTasks: _confirmKeepOnlyTopTasks,
-                onOpenFirstDelayedGoal: _openFirstDelayedGoal,
-                onReviewCompletedDay: () {
-                  _openTopLevelDestination(3, AppRoutes.stats);
-                },
-              ),
-            ],
-          ),
-        ),
-        if (_tasks.isEmpty)
-          const Padding(
+      itemCount: _tasks.isEmpty ? 2 : listEntries.length + 1,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return _buildTodayOverview(progress);
+        }
+
+        if (_tasks.isEmpty) {
+          return const Padding(
             padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
             child: EmptyState(
               icon: Icons.task_alt_outlined,
               title: '今天暂时没有任务',
               message: '去目标页创建一个目标，让今天有个轻轻的抓手。',
             ),
-          ),
-        for (final group in _taskGroups) ...[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md,
-              AppSpacing.md,
-              AppSpacing.md,
-              AppSpacing.xs,
-            ),
-            child: Text(
-              group.title,
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-          ),
-          for (final task in group.tasks)
-            _TodayTaskRow(
-              key: ValueKey(task.id),
-              task: task,
-              onEdit: () => _showEditTaskSheet(task),
-              onComplete: task.isCompleted ? null : () => _complete(task),
-              onPostpone: task.isCompleted ? null : () => _postpone(task),
-              onDelete: () => _delete(task),
-            ),
-        ],
-      ],
+          );
+        }
+
+        return _buildTodayListEntry(listEntries[index - 1]);
+      },
     );
+  }
+
+  Widget _buildTodayOverview(double progress) {
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('今天最重要的事', style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            '保持小步前进，别让目标躺平。',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          AnimatedProgressBar(value: progress),
+          const SizedBox(height: AppSpacing.md),
+          _CoachInsightCard(
+            insight: _coachInsight,
+            expanded: _coachExpanded,
+            onToggleExpanded: () {
+              setState(() => _coachExpanded = !_coachExpanded);
+            },
+            onCreateFirstAction: () {
+              _openTopLevelDestination(1, AppRoutes.goals);
+            },
+            onOpenFirstTopTask: _openFirstCoachTask,
+            onKeepOnlyTopTasks: _confirmKeepOnlyTopTasks,
+            onOpenFirstDelayedGoal: _openFirstDelayedGoal,
+            onReviewCompletedDay: () {
+              _openTopLevelDestination(3, AppRoutes.stats);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTodayListEntry(_TodayListEntry entry) {
+    return switch (entry) {
+      _TodayGroupHeaderEntry() => Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.xs,
+          ),
+          child: Text(
+            entry.title,
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+        ),
+      _TodayTaskEntry() => _TodayTaskRow(
+          key: ValueKey(entry.task.id),
+          task: entry.task,
+          onEdit: () => _showEditTaskSheet(entry.task),
+          onComplete:
+              entry.task.isCompleted ? null : () => _complete(entry.task),
+          onPostpone:
+              entry.task.isCompleted ? null : () => _postpone(entry.task),
+          onDelete: () => _delete(entry.task),
+        ),
+    };
+  }
+
+  List<_TodayListEntry> get _todayListEntries {
+    return [
+      for (final group in _taskGroups) ...[
+        _TodayGroupHeaderEntry(group.title),
+        for (final task in group.tasks) _TodayTaskEntry(task),
+      ],
+    ];
   }
 
   List<_TaskGroup> get _taskGroups {
@@ -907,7 +935,7 @@ class _CoachInsightCard extends StatelessWidget {
                       'Evoly Coach 今日建议',
                       style: textTheme.titleMedium?.copyWith(
                         color: colorScheme.onSecondaryContainer,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -1247,6 +1275,22 @@ class _TaskGroup {
 
   final String title;
   final List<TaskItem> tasks;
+}
+
+sealed class _TodayListEntry {
+  const _TodayListEntry();
+}
+
+class _TodayGroupHeaderEntry extends _TodayListEntry {
+  const _TodayGroupHeaderEntry(this.title);
+
+  final String title;
+}
+
+class _TodayTaskEntry extends _TodayListEntry {
+  const _TodayTaskEntry(this.task);
+
+  final TaskItem task;
 }
 
 enum _TodayTaskAction {

@@ -1,4 +1,6 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 import 'package:evoly/app/router.dart';
 import 'package:evoly/core/domain/priority.dart';
@@ -10,6 +12,7 @@ import 'package:evoly/features/tasks/domain/task_item.dart';
 import 'package:evoly/shared/ui/bottom_sheets/bottom_sheet_focus.dart';
 import 'package:evoly/shared/ui/bottom_sheets/responsive_bottom_sheet_body.dart';
 import 'package:evoly/shared/ui/components/animated_progress_bar.dart';
+import 'package:evoly/shared/ui/motion/motion_tokens.dart';
 import 'package:evoly/shared/ui/tokens/app_spacing.dart';
 import 'package:evoly/shared/widgets/empty_state.dart';
 import 'package:evoly/shared/widgets/evoly_navigation_bar.dart';
@@ -46,19 +49,10 @@ class _GoalListPageState extends State<GoalListPage> {
       appBar: AppBar(
         title: const Text('目标'),
         actions: [
-          PopupMenuButton<_GoalSortMode>(
+          IconButton(
             tooltip: '排序',
-            icon: const Icon(Icons.sort_rounded),
-            initialValue: _sortMode,
-            onSelected: (sortMode) {
-              setState(() => _sortMode = sortMode);
-            },
-            itemBuilder: (context) => _GoalSortMode.values.map((sortMode) {
-              return PopupMenuItem(
-                value: sortMode,
-                child: Text(sortMode.label),
-              );
-            }).toList(),
+            onPressed: _showSortPickerSheet,
+            icon: const Icon(Icons.tune_rounded),
           ),
           IconButton(
             onPressed: _showCreateGoalSheet,
@@ -102,6 +96,7 @@ class _GoalListPageState extends State<GoalListPage> {
         children: [
           _GoalFilterBar(
             selected: _statusFilter,
+            goals: _goals,
             onChanged: (filter) => setState(() => _statusFilter = filter),
           ),
           const Expanded(
@@ -116,6 +111,7 @@ class _GoalListPageState extends State<GoalListPage> {
     }
 
     return ListView.separated(
+      scrollCacheExtent: const ScrollCacheExtent.pixels(720),
       padding: const EdgeInsets.only(bottom: AppSpacing.lg),
       itemCount: visibleGoals.length + 1,
       separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.xs),
@@ -123,6 +119,7 @@ class _GoalListPageState extends State<GoalListPage> {
         if (index == 0) {
           return _GoalFilterBar(
             selected: _statusFilter,
+            goals: _goals,
             onChanged: (filter) => setState(() => _statusFilter = filter),
           );
         }
@@ -187,6 +184,40 @@ class _GoalListPageState extends State<GoalListPage> {
     }
 
     return left.compareTo(right);
+  }
+
+  Future<void> _showSortPickerSheet() async {
+    final selectedSortMode = await showGeneralDialog<_GoalSortMode>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.04),
+      barrierDismissible: true,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      transitionDuration: MotionTokens.fast,
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return _GoalSortWheelPopover(selected: _sortMode);
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curvedAnimation = CurvedAnimation(
+          parent: animation,
+          curve: MotionTokens.standard,
+        );
+
+        return FadeTransition(
+          opacity: curvedAnimation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.96, end: 1).animate(curvedAnimation),
+            alignment: Alignment.topRight,
+            child: child,
+          ),
+        );
+      },
+    );
+
+    if (selectedSortMode == null || selectedSortMode == _sortMode || !mounted) {
+      return;
+    }
+
+    setState(() => _sortMode = selectedSortMode);
   }
 
   Future<void> _showEditGoalSheet(Goal goal) async {
@@ -443,32 +474,352 @@ class _CreateGoalSheetState extends State<_CreateGoalSheet> {
   }
 }
 
+class _GoalSortWheelPopover extends StatefulWidget {
+  const _GoalSortWheelPopover({required this.selected});
+
+  final _GoalSortMode selected;
+
+  @override
+  State<_GoalSortWheelPopover> createState() => _GoalSortWheelPopoverState();
+}
+
+class _GoalSortWheelPopoverState extends State<_GoalSortWheelPopover> {
+  late _GoalSortMode _selected;
+  late final FixedExtentScrollController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.selected;
+    _controller = FixedExtentScrollController(
+      initialItem: _GoalSortMode.values.indexOf(widget.selected),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final topPadding = MediaQuery.paddingOf(context).top;
+
+    return Stack(
+      children: [
+        Positioned(
+          top: topPadding + kToolbarHeight + AppSpacing.xs,
+          right: AppSpacing.sm,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: 196,
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.xs,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.tune_rounded,
+                          size: 16,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        Expanded(
+                          child: Text(
+                            '排序方式',
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 32,
+                            height: 32,
+                          ),
+                          tooltip: '完成',
+                          onPressed: () => Navigator.pop(context, _selected),
+                          icon: const Icon(Icons.check_rounded, size: 18),
+                        ),
+                      ],
+                    ),
+                    SizedBox(
+                      height: 224,
+                      child: CupertinoPicker(
+                        scrollController: _controller,
+                        itemExtent: 42,
+                        magnification: 1.04,
+                        squeeze: 1.1,
+                        useMagnifier: true,
+                        selectionOverlay: const _GoalSortSelectionOverlay(),
+                        onSelectedItemChanged: (index) {
+                          setState(
+                            () => _selected = _GoalSortMode.values[index],
+                          );
+                        },
+                        children: [
+                          for (final sortMode in _GoalSortMode.values)
+                            Center(
+                              child: AnimatedDefaultTextStyle(
+                                duration: MotionTokens.fast,
+                                curve: MotionTokens.standard,
+                                style: (sortMode == _selected
+                                            ? theme.textTheme.titleSmall
+                                            : theme.textTheme.bodyMedium)
+                                        ?.copyWith(
+                                      color: sortMode == _selected
+                                          ? colorScheme.primary
+                                          : colorScheme.onSurfaceVariant,
+                                      fontWeight: sortMode == _selected
+                                          ? FontWeight.w600
+                                          : FontWeight.w500,
+                                    ) ??
+                                    const TextStyle(),
+                                child: Text(sortMode.label),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GoalSortSelectionOverlay extends StatelessWidget {
+  const _GoalSortSelectionOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Center(
+      child: IgnorePointer(
+        child: Container(
+          height: 40,
+          margin: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            gradient: LinearGradient(
+              colors: [
+                colorScheme.primaryContainer.withValues(alpha: 0.22),
+                colorScheme.secondaryContainer.withValues(alpha: 0.22),
+              ],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+            border: Border.all(
+              color: colorScheme.primary.withValues(alpha: 0.16),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _GoalFilterBar extends StatelessWidget {
   const _GoalFilterBar({
     required this.selected,
+    required this.goals,
     required this.onChanged,
   });
 
   final _GoalStatusFilter selected;
+  final List<Goal> goals;
   final ValueChanged<_GoalStatusFilter> onChanged;
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
         vertical: AppSpacing.sm,
       ),
       scrollDirection: Axis.horizontal,
-      child: SegmentedButton<_GoalStatusFilter>(
-        selected: {selected},
-        onSelectionChanged: (values) => onChanged(values.first),
-        segments: _GoalStatusFilter.values.map((filter) {
-          return ButtonSegment(
-            value: filter,
-            label: Text(filter.label),
-          );
-        }).toList(),
+      child: Row(
+        children: [
+          for (final filter in _GoalStatusFilter.values) ...[
+            _GoalFilterChip(
+              filter: filter,
+              count: _countFor(filter),
+              selected: selected == filter,
+              onTap: () => onChanged(filter),
+            ),
+            if (filter != _GoalStatusFilter.values.last)
+              const SizedBox(width: AppSpacing.sm),
+          ],
+          const SizedBox(width: AppSpacing.xs),
+          Icon(
+            Icons.swipe_rounded,
+            size: 16,
+            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+          ),
+        ],
+      ),
+    );
+  }
+
+  int _countFor(_GoalStatusFilter filter) {
+    return goals.where((goal) {
+      return switch (filter) {
+        _GoalStatusFilter.all => true,
+        _GoalStatusFilter.active => goal.isActive,
+        _GoalStatusFilter.completed => goal.status == GoalStatus.completed,
+        _GoalStatusFilter.paused => goal.status == GoalStatus.paused,
+        _GoalStatusFilter.abandoned => goal.status == GoalStatus.abandoned,
+      };
+    }).length;
+  }
+}
+
+class _GoalFilterChip extends StatelessWidget {
+  const _GoalFilterChip({
+    required this.filter,
+    required this.count,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _GoalStatusFilter filter;
+  final int count;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final foregroundColor = selected
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.onSurfaceVariant;
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '${filter.label}，$count 个目标',
+      child: AnimatedContainer(
+        duration: MotionTokens.fast,
+        curve: MotionTokens.standard,
+        decoration: BoxDecoration(
+          gradient: selected
+              ? LinearGradient(
+                  colors: [
+                    colorScheme.primaryContainer,
+                    colorScheme.secondaryContainer,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: selected ? null : colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected
+                ? colorScheme.primary.withValues(alpha: 0.18)
+                : colorScheme.outlineVariant.withValues(alpha: 0.72),
+          ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: colorScheme.primary.withValues(alpha: 0.12),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ]
+              : null,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(999),
+            onTap: selected ? null : onTap,
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: selected ? AppSpacing.md : AppSpacing.sm + 2,
+                vertical: AppSpacing.xs + 2,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedScale(
+                    scale: selected ? 1 : 0,
+                    duration: MotionTokens.fast,
+                    curve: MotionTokens.standard,
+                    child: Icon(
+                      Icons.check_rounded,
+                      size: selected ? 16 : 0,
+                      color: foregroundColor,
+                    ),
+                  ),
+                  if (selected) const SizedBox(width: AppSpacing.xs),
+                  Text(
+                    filter.label,
+                    style: textTheme.labelLarge?.copyWith(
+                      color: foregroundColor,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  AnimatedContainer(
+                    duration: MotionTokens.fast,
+                    curve: MotionTokens.standard,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.xs,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? colorScheme.surface.withValues(alpha: 0.58)
+                          : colorScheme.surface.withValues(alpha: 0.82),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '$count',
+                      style: textTheme.labelSmall?.copyWith(
+                        color: foregroundColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -492,10 +843,12 @@ class _GoalCard extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final colors = Theme.of(context).colorScheme;
     final isCompleted = goal.status == GoalStatus.completed;
-    final titleStyle = textTheme.titleMedium?.copyWith(
+    final cardRadius = BorderRadius.circular(18);
+    final titleStyle = textTheme.titleSmall?.copyWith(
       decoration: isCompleted ? TextDecoration.lineThrough : null,
       color: isCompleted ? colors.onSurfaceVariant : null,
     );
+    final progressPercent = (goal.normalizedProgress * 100).round();
 
     return Dismissible(
       key: ValueKey(goal.id),
@@ -514,21 +867,64 @@ class _GoalCard extends StatelessWidget {
         return false;
       },
       child: Card(
+        elevation: 0,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        clipBehavior: Clip.none,
+        color: isCompleted
+            ? colors.surfaceContainerHighest.withValues(alpha: 0.72)
+            : colors.surfaceContainerLow,
+        margin: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.xs,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: cardRadius,
+          side: BorderSide(
+            color: colors.outlineVariant.withValues(alpha: 0.56),
+          ),
+        ),
         child: InkWell(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: cardRadius,
           onTap: onOpen,
           child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.sm,
+              AppSpacing.sm,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: _priorityColor(context, goal.priority),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
                     Expanded(
-                      child: Text(goal.title, style: titleStyle),
+                      child: Text(
+                        goal.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: titleStyle,
+                      ),
                     ),
                     PopupMenuButton<_GoalCardAction>(
+                      icon: const Icon(Icons.more_horiz_rounded),
+                      iconSize: 20,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints.tightFor(
+                        width: 40,
+                        height: 40,
+                      ),
                       onSelected: (action) {
                         switch (action) {
                           case _GoalCardAction.edit:
@@ -550,17 +946,32 @@ class _GoalCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.sm),
-                AnimatedProgressBar(value: goal.normalizedProgress),
-                const SizedBox(height: AppSpacing.sm),
+                const SizedBox(height: AppSpacing.xs),
+                Row(
+                  children: [
+                    Expanded(
+                      child:
+                          AnimatedProgressBar(value: goal.normalizedProgress),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      '$progressPercent%',
+                      style: textTheme.labelSmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xs),
                 Wrap(
-                  spacing: AppSpacing.sm,
+                  spacing: AppSpacing.xs,
                   runSpacing: AppSpacing.xs,
                   children: [
-                    _GoalChip(label: '优先级：${goal.priority.label}'),
-                    _GoalChip(label: goal.status.label),
+                    _GoalMetaPill(label: '优先级：${goal.priority.label}'),
+                    _GoalMetaPill(label: goal.status.label),
                     if (goal.dueDate != null)
-                      _GoalChip(label: '截止：${_formatDate(goal.dueDate!)}'),
+                      _GoalMetaPill(label: '截止：${_formatDate(goal.dueDate!)}'),
                   ],
                 ),
               ],
@@ -575,10 +986,20 @@ class _GoalCard extends StatelessWidget {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-'
         '${date.day.toString().padLeft(2, '0')}';
   }
+
+  Color _priorityColor(BuildContext context, Priority priority) {
+    final colors = Theme.of(context).colorScheme;
+
+    return switch (priority) {
+      Priority.high => colors.error,
+      Priority.medium => colors.tertiary,
+      Priority.low => colors.primary,
+    };
+  }
 }
 
-class _GoalChip extends StatelessWidget {
-  const _GoalChip({required this.label});
+class _GoalMetaPill extends StatelessWidget {
+  const _GoalMetaPill({required this.label});
 
   final String label;
 
@@ -586,11 +1007,24 @@ class _GoalChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
 
-    return Chip(
-      visualDensity: VisualDensity.compact,
-      label: Text(label),
-      backgroundColor: colors.surfaceContainerHighest,
-      side: BorderSide.none,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: 2,
+        ),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colors.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+              ),
+        ),
+      ),
     );
   }
 }
