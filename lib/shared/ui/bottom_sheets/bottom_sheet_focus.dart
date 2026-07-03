@@ -1,7 +1,6 @@
 import 'package:flutter/widgets.dart';
-import 'package:evoly/shared/ui/motion/motion_tokens.dart';
 
-const bottomSheetKeyboardFocusDelay = MotionTokens.normal;
+const bottomSheetKeyboardFocusDelay = Duration(milliseconds: 420);
 
 Future<void> requestFocusAfterBottomSheetEntrance(
   State state,
@@ -12,5 +11,11 @@ Future<void> requestFocusAfterBottomSheetEntrance(
     return;
   }
 
-  focusNode.requestFocus();
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (!state.mounted || !focusNode.canRequestFocus) {
+      return;
+    }
+
+    focusNode.requestFocus();
+  });
 }

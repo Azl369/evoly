@@ -2,9 +2,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:evoly/app/data_refresh_listener.dart';
 import 'package:evoly/features/stats/data/stats_repository.dart';
 import 'package:evoly/shared/ui/components/animated_progress_bar.dart';
+import 'package:evoly/shared/ui/components/app_components.dart';
 import 'package:evoly/shared/ui/tokens/app_spacing.dart';
+import 'package:evoly/shared/ui/tokens/evoly_design_tokens.dart';
 import 'package:evoly/shared/widgets/empty_state.dart';
 import 'package:evoly/shared/widgets/evoly_navigation_bar.dart';
 
@@ -20,14 +23,15 @@ class StatsPage extends StatefulWidget {
   State<StatsPage> createState() => _StatsPageState();
 }
 
-class _StatsPageState extends State<StatsPage> {
+class _StatsPageState extends State<StatsPage>
+    with DataRefreshListener<StatsPage> {
   StatsSnapshot? _snapshot;
   var _loading = true;
   var _todayCompletedExpanded = false;
   var _todayPostponedExpanded = false;
   var _weekCompletedExpanded = false;
   var _weekPostponedExpanded = false;
-  var _completionChartMode = _CompletionChartMode.pie;
+  var _completionChartMode = _CompletionChartMode.line;
   String? _errorMessage;
 
   @override
@@ -35,6 +39,9 @@ class _StatsPageState extends State<StatsPage> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadStats());
   }
+
+  @override
+  Future<void> reloadDataForRefresh() => _loadStats();
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +64,7 @@ class _StatsPageState extends State<StatsPage> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingState(label: '正在整理统计');
     }
 
     final errorMessage = _errorMessage;
@@ -81,10 +88,18 @@ class _StatsPageState extends State<StatsPage> {
     return RefreshIndicator(
       onRefresh: _loadStats,
       child: ListView(
-        padding: const EdgeInsets.all(AppSpacing.md),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.md,
+          AppSpacing.md,
+          AppSpacing.xxl,
+        ),
         children: [
-          Text('今日概览', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: AppSpacing.lg),
+          const AppSectionHeader(
+            title: '今日概览',
+            padding: EdgeInsets.zero,
+          ),
+          const SizedBox(height: AppSpacing.sm),
           _ExpandableMetricCard(
             title: '今日完成',
             value: '${snapshot.todayCompletedTasks}',
@@ -117,9 +132,12 @@ class _StatsPageState extends State<StatsPage> {
               });
             },
           ),
-          const SizedBox(height: AppSpacing.lg),
-          Text('本周概览', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.md),
+          const AppSectionHeader(
+            title: '本周概览',
+            padding: EdgeInsets.zero,
+          ),
+          const SizedBox(height: AppSpacing.sm),
           _ExpandableMetricCard(
             title: '本周完成',
             value: '${snapshot.weekCompletedTasks}',
@@ -157,7 +175,7 @@ class _StatsPageState extends State<StatsPage> {
             value: '${snapshot.streakDays} 天',
             icon: Icons.local_fire_department_outlined,
           ),
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.md),
           _CompletionChartCard(
             items: snapshot.weekCompletedItems,
             mode: _completionChartMode,
@@ -167,14 +185,22 @@ class _StatsPageState extends State<StatsPage> {
               });
             },
           ),
-          const SizedBox(height: AppSpacing.lg),
-          Text('目标完成率', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: AppSpacing.sm),
-          AnimatedProgressBar(value: snapshot.goalCompletionRate),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            '${snapshot.completedGoals}/${snapshot.totalGoals} 个目标已完成',
-            style: Theme.of(context).textTheme.bodySmall,
+          const SizedBox(height: AppSpacing.md),
+          AppSurfaceCard(
+            margin: EdgeInsets.zero,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('目标完成率', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: AppSpacing.sm),
+                AnimatedProgressBar(value: snapshot.goalCompletionRate),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  '${snapshot.completedGoals}/${snapshot.totalGoals} 个目标已完成',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -224,15 +250,10 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        leading: Icon(icon),
-        title: Text(title),
-        trailing: Text(
-          value,
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-      ),
+    return AppMetricCard(
+      title: title,
+      value: value,
+      icon: icon,
     );
   }
 }
@@ -264,7 +285,9 @@ class _ExpandableMetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return AppSurfaceCard(
+      padding: EdgeInsets.zero,
+      margin: const EdgeInsets.only(bottom: AppSpacing.xs),
       child: Column(
         children: [
           ListTile(
@@ -371,90 +394,66 @@ class _CompletionChartCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final chartColors = EvolyDesignTokens.of(context).chartPalette;
     final points = _buildWeekPoints(items);
     final total = points.fold<int>(0, (sum, point) => sum + point.count);
-    const piePalette = [
-      _ChartSliceStyle(
-        start: Color(0xFF5EEAD4),
-        end: Color(0xFF34D399),
-      ),
-      _ChartSliceStyle(
-        start: Color(0xFF60A5FA),
-        end: Color(0xFFA78BFA),
-      ),
-      _ChartSliceStyle(
-        start: Color(0xFFFF8A80),
-        end: Color(0xFFFFC078),
-      ),
-      _ChartSliceStyle(
-        start: Color(0xFFF472B6),
-        end: Color(0xFFFB7185),
-      ),
-      _ChartSliceStyle(
-        start: Color(0xFFFBBF24),
-        end: Color(0xFFFDE68A),
-      ),
-      _ChartSliceStyle(
-        start: Color(0xFFC084FC),
-        end: Color(0xFF818CF8),
-      ),
-      _ChartSliceStyle(
-        start: Color(0xFF22D3EE),
-        end: Color(0xFF38BDF8),
-      ),
+    final piePalette = [
+      for (final color in chartColors)
+        _ChartSliceStyle(
+          start: color.withValues(alpha: 0.86),
+          end: color,
+        ),
     ];
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '本周完成图表',
-                    style: theme.textTheme.titleMedium,
+    return AppSurfaceCard(
+      margin: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '本周完成图表',
+                  style: theme.textTheme.titleMedium,
+                ),
+              ),
+              SegmentedButton<_CompletionChartMode>(
+                segments: const [
+                  ButtonSegment(
+                    value: _CompletionChartMode.pie,
+                    icon: Icon(Icons.pie_chart_outline_rounded),
+                    label: Text('饼图'),
                   ),
-                ),
-                SegmentedButton<_CompletionChartMode>(
-                  segments: const [
-                    ButtonSegment(
-                      value: _CompletionChartMode.pie,
-                      icon: Icon(Icons.pie_chart_outline_rounded),
-                      label: Text('饼图'),
-                    ),
-                    ButtonSegment(
-                      value: _CompletionChartMode.line,
-                      icon: Icon(Icons.show_chart_rounded),
-                      label: Text('折线'),
-                    ),
-                  ],
-                  selected: {mode},
-                  onSelectionChanged: (selection) {
-                    onModeChanged(selection.first);
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
+                  ButtonSegment(
+                    value: _CompletionChartMode.line,
+                    icon: Icon(Icons.show_chart_rounded),
+                    label: Text('折线'),
+                  ),
+                ],
+                selected: {mode},
+                onSelectionChanged: (selection) {
+                  onModeChanged(selection.first);
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            '按本周每天的完成任务数统计。',
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (total == 0)
             Text(
-              '按本周每天的完成任务数统计。',
-              style: theme.textTheme.bodySmall,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            if (total == 0)
-              Text(
-                '本周还没有完成项目，完成后这里会出现图表。',
-                style: theme.textTheme.bodyMedium,
-              )
-            else if (mode == _CompletionChartMode.pie)
-              _CompletionPieChart(points: points, palette: piePalette)
-            else
-              _CompletionLineChart(points: points),
-          ],
-        ),
+              '本周还没有完成项目，完成后这里会出现图表。',
+              style: theme.textTheme.bodyMedium,
+            )
+          else if (mode == _CompletionChartMode.pie)
+            _CompletionPieChart(points: points, palette: piePalette)
+          else
+            _CompletionLineChart(points: points),
+        ],
       ),
     );
   }
@@ -548,6 +547,20 @@ class _CompletionLineChart extends StatelessWidget {
                   point.label.replaceFirst('周', ''),
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            for (final point in points)
+              Expanded(
+                child: Text(
+                  '${point.count}',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.labelSmall,
                 ),
               ),
           ],

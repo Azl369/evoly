@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:evoly/app/data_refresh_listener.dart';
 import 'package:evoly/app/router.dart';
 import 'package:evoly/features/documents/application/project_summary_template.dart';
 import 'package:evoly/features/documents/data/document_repository.dart';
@@ -15,6 +16,8 @@ import 'package:evoly/features/tasks/presentation/widgets/task_card.dart';
 import 'package:evoly/features/tasks/presentation/widgets/task_create_sheet.dart';
 import 'package:evoly/features/tasks/presentation/widgets/task_edit_sheet.dart';
 import 'package:evoly/shared/ui/components/animated_progress_bar.dart';
+import 'package:evoly/shared/ui/components/app_components.dart';
+import 'package:evoly/shared/ui/motion/motion_tokens.dart';
 import 'package:evoly/shared/ui/tokens/app_spacing.dart';
 import 'package:evoly/shared/widgets/empty_state.dart';
 import 'package:uuid/uuid.dart';
@@ -31,7 +34,8 @@ class GoalDetailPage extends StatefulWidget {
   State<GoalDetailPage> createState() => _GoalDetailPageState();
 }
 
-class _GoalDetailPageState extends State<GoalDetailPage> {
+class _GoalDetailPageState extends State<GoalDetailPage>
+    with DataRefreshListener<GoalDetailPage> {
   Goal? _goal;
   final List<TaskItem> _tasks = [];
   final List<EvolyDocument> _documents = [];
@@ -43,6 +47,9 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadDetail());
   }
+
+  @override
+  Future<void> reloadDataForRefresh() => _loadDetail();
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +81,7 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
     }
 
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingState(label: '正在打开目标');
     }
 
     final errorMessage = _errorMessage;
@@ -98,7 +105,12 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
     return RefreshIndicator(
       onRefresh: _loadDetail,
       child: ListView(
-        padding: const EdgeInsets.all(AppSpacing.md),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.md,
+          AppSpacing.md,
+          AppSpacing.xxl,
+        ),
         children: [
           Text(goal.title, style: Theme.of(context).textTheme.headlineSmall),
           if (goal.description.isNotEmpty) ...[
@@ -331,7 +343,12 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
     final updated = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      requestFocus: false,
       showDragHandle: true,
+      sheetAnimationStyle: const AnimationStyle(
+        duration: MotionTokens.slow,
+        reverseDuration: MotionTokens.fast,
+      ),
       builder: (context) {
         return GoalEditSheet(
           goal: goal,
@@ -365,6 +382,9 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
     );
 
     await context.read<TaskRepository>().save(task);
+    if (mounted) {
+      notifyDataChanged();
+    }
   }
 
   Future<void> _saveGoal(Goal updatedGoal) async {
@@ -376,6 +396,9 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
 
     try {
       await context.read<GoalRepository>().save(updatedGoal);
+      if (mounted) {
+        notifyDataChanged();
+      }
     } catch (error) {
       if (!mounted) {
         return;
@@ -483,6 +506,8 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
         return;
       }
 
+      notifyDataChanged();
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('任务已删除')),
       );
@@ -545,6 +570,9 @@ class _GoalDetailPageState extends State<GoalDetailPage> {
 
     try {
       await context.read<TaskRepository>().save(newTask);
+      if (mounted) {
+        notifyDataChanged();
+      }
     } catch (error) {
       if (!mounted) {
         return;

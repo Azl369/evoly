@@ -11,6 +11,7 @@ import 'package:evoly/features/goals/domain/goal.dart';
 import 'package:evoly/features/tasks/data/task_repository.dart';
 import 'package:evoly/features/tasks/domain/task_item.dart';
 import 'package:evoly/shared/ui/components/animated_progress_bar.dart';
+import 'package:evoly/shared/ui/components/app_components.dart';
 import 'package:evoly/shared/ui/tokens/app_spacing.dart';
 import 'package:evoly/shared/widgets/empty_state.dart';
 import 'package:evoly/shared/widgets/evoly_navigation_bar.dart';
@@ -76,7 +77,7 @@ class _GoalDocumentFolderPageState extends State<GoalDocumentFolderPage> {
     }
 
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingState(label: '正在打开档案夹');
     }
 
     final errorMessage = _errorMessage;

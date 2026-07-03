@@ -42,6 +42,25 @@ $env:JAVA_HOME='D:\dev\jdk-17'
 $env:Path='D:\dev\jdk-17\bin;' + $env:Path
 ```
 
+### 2.1 Supabase 同步参数
+
+V0.4 同步功能使用 `--dart-define` 注入 Supabase 配置，不把项目地址和 publishable key 写死进仓库。
+
+```powershell
+$env:SUPABASE_URL='<your-supabase-project-url>'
+$env:SUPABASE_PUBLISHABLE_KEY='<your-supabase-publishable-key>'
+```
+
+运行时追加：
+
+```powershell
+flutter run -d windows `
+  --dart-define=SUPABASE_URL=$env:SUPABASE_URL `
+  --dart-define=SUPABASE_PUBLISHABLE_KEY=$env:SUPABASE_PUBLISHABLE_KEY
+```
+
+Android 真机运行同理，把 `-d windows` 换成当前设备 ID。
+
 ---
 
 ## 3. Windows 桌面端调试

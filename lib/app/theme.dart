@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:evoly/app/theme_preset.dart';
 import 'package:evoly/shared/ui/tokens/app_radii.dart';
 import 'package:evoly/shared/ui/tokens/app_spacing.dart';
+import 'package:evoly/shared/ui/tokens/evoly_design_tokens.dart';
 
 class AppTheme {
+  static final _lightThemeCache = <EvolyThemePreset, ThemeData>{};
+  static final _darkThemeCache = <EvolyThemePreset, ThemeData>{};
+
   static const _fontFamilyFallback = [
     'MiSans',
     'HarmonyOS Sans SC',
@@ -19,33 +24,70 @@ class AppTheme {
     'sans-serif',
   ];
 
-  static ThemeData light() {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF5B6CFF),
-      brightness: Brightness.light,
+  static ThemeData light([
+    EvolyThemePreset preset = EvolyThemePreset.orbitBlue,
+  ]) {
+    return _lightThemeCache.putIfAbsent(
+      preset,
+      () => _base(_colorSchemeFor(preset, Brightness.light)),
     );
-
-    return _base(colorScheme);
   }
 
-  static ThemeData dark() {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF8EA0FF),
-      brightness: Brightness.dark,
+  static ThemeData dark([
+    EvolyThemePreset preset = EvolyThemePreset.orbitBlue,
+  ]) {
+    return _darkThemeCache.putIfAbsent(
+      preset,
+      () => _base(_colorSchemeFor(preset, Brightness.dark)),
+    );
+  }
+
+  static ColorScheme _colorSchemeFor(
+    EvolyThemePreset preset,
+    Brightness brightness,
+  ) {
+    final base = ColorScheme.fromSeed(
+      seedColor: preset.seedColor,
+      brightness: brightness,
+    );
+    final secondary = ColorScheme.fromSeed(
+      seedColor: preset.secondarySeedColor,
+      brightness: brightness,
+    );
+    final tertiary = ColorScheme.fromSeed(
+      seedColor: preset.tertiarySeedColor,
+      brightness: brightness,
     );
 
-    return _base(colorScheme);
+    return base.copyWith(
+      secondary: secondary.primary,
+      onSecondary: secondary.onPrimary,
+      secondaryContainer: secondary.primaryContainer,
+      onSecondaryContainer: secondary.onPrimaryContainer,
+      tertiary: tertiary.primary,
+      onTertiary: tertiary.onPrimary,
+      tertiaryContainer: tertiary.primaryContainer,
+      onTertiaryContainer: tertiary.onPrimaryContainer,
+    );
   }
 
   static ThemeData _base(ColorScheme colorScheme) {
+    final tokens = EvolyDesignTokens.from(colorScheme);
+
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
+      extensions: [tokens],
       fontFamilyFallback: _fontFamilyFallback,
       textTheme: _textTheme(colorScheme),
-      scaffoldBackgroundColor: colorScheme.surface,
+      scaffoldBackgroundColor: tokens.pageBackground,
       appBarTheme: AppBarTheme(
+        elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: false,
+        backgroundColor: tokens.pageBackground,
+        foregroundColor: colorScheme.onSurface,
+        surfaceTintColor: Colors.transparent,
         titleTextStyle: _textStyle(
           color: colorScheme.onSurface,
           fontSize: 19,
@@ -59,22 +101,144 @@ class AppTheme {
           horizontal: AppSpacing.md,
           vertical: AppSpacing.xs,
         ),
+        color: tokens.surfaceRaised,
+        surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.lg),
-          side: BorderSide(color: colorScheme.outlineVariant),
+          side: BorderSide(color: tokens.outlineSubtle),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
+        fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.compact,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.md),
           borderSide: BorderSide.none,
         ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadii.md),
+          borderSide: BorderSide(color: tokens.outlineSubtle),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadii.md),
+          borderSide: BorderSide(color: colorScheme.primary, width: 1.4),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadii.md),
+          borderSide: BorderSide(color: colorScheme.error),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadii.md),
+          borderSide: BorderSide(color: colorScheme.error, width: 1.4),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(64, AppSpacing.minTouchTarget),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.md),
+          ),
+          textStyle: _textStyle(
+            color: colorScheme.onPrimary,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            height: 1.18,
+          ),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(64, AppSpacing.minTouchTarget),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.md),
+          ),
+          side: BorderSide(color: tokens.outlineSubtle),
+          textStyle: _textStyle(
+            color: colorScheme.primary,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            height: 1.18,
+          ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          minimumSize: const Size(48, AppSpacing.minTouchTarget),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+          textStyle: _textStyle(
+            color: colorScheme.primary,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            height: 1.18,
+          ),
+        ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          minimumSize: const Size.square(AppSpacing.minTouchTarget),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          minimumSize: WidgetStateProperty.all(
+            const Size(48, AppSpacing.minTouchTarget),
+          ),
+          side: WidgetStateProperty.resolveWith((states) {
+            final selected = states.contains(WidgetState.selected);
+            return BorderSide(
+              color: selected ? colorScheme.primary : tokens.outlineSubtle,
+            );
+          }),
+          shape: WidgetStateProperty.all(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadii.md),
+            ),
+          ),
+        ),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
+        showDragHandle: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppRadii.xl),
+          ),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.lg),
+        ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: colorScheme.inverseSurface,
+        contentTextStyle: _textStyle(
+          color: colorScheme.onInverseSurface,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          height: 1.28,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.md),
+        ),
       ),
       navigationBarTheme: NavigationBarThemeData(
         elevation: 0,
-        backgroundColor: colorScheme.surface,
-        indicatorColor: colorScheme.primaryContainer,
+        backgroundColor: colorScheme.surface.withValues(alpha: 0.98),
+        surfaceTintColor: Colors.transparent,
+        indicatorColor: colorScheme.primaryContainer.withValues(alpha: 0.72),
+        height: 68,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           return _textStyle(
             color: states.contains(WidgetState.selected)
@@ -98,21 +262,18 @@ class AppTheme {
         fontSize: 36,
         fontWeight: FontWeight.w600,
         height: 1.14,
-        letterSpacing: -0.2,
       ),
       displayMedium: _textStyle(
         color: colorScheme.onSurface,
         fontSize: 32,
         fontWeight: FontWeight.w600,
         height: 1.15,
-        letterSpacing: -0.15,
       ),
       displaySmall: _textStyle(
         color: colorScheme.onSurface,
         fontSize: 28,
         fontWeight: FontWeight.w600,
         height: 1.18,
-        letterSpacing: -0.1,
       ),
       headlineLarge: _textStyle(
         color: colorScheme.onSurface,
@@ -179,14 +340,12 @@ class AppTheme {
         fontSize: 12.5,
         fontWeight: FontWeight.w500,
         height: 1.18,
-        letterSpacing: 0.05,
       ),
       labelSmall: _textStyle(
         color: colorScheme.onSurfaceVariant,
         fontSize: 11.5,
         fontWeight: FontWeight.w500,
         height: 1.16,
-        letterSpacing: 0.05,
       ),
     );
   }

@@ -5,6 +5,7 @@ import 'package:evoly/features/documents/data/document_repository.dart';
 import 'package:evoly/features/documents/domain/document_folder_summary.dart';
 import 'package:evoly/features/documents/domain/evoly_document.dart';
 import 'package:evoly/features/goals/domain/goal.dart';
+import 'package:evoly/shared/ui/components/app_components.dart';
 import 'package:evoly/shared/ui/tokens/app_spacing.dart';
 import 'package:evoly/shared/widgets/empty_state.dart';
 import 'package:evoly/shared/widgets/evoly_navigation_bar.dart';
@@ -71,7 +72,7 @@ class _DocumentLibraryPageState extends State<DocumentLibraryPage> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingState(label: '正在打开文档库');
     }
 
     final errorMessage = _errorMessage;
@@ -272,15 +273,10 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: theme.textTheme.titleMedium),
-        const SizedBox(height: AppSpacing.xs),
-        Text(subtitle, style: theme.textTheme.bodySmall),
-      ],
+    return AppSectionHeader(
+      title: title,
+      subtitle: subtitle,
+      padding: EdgeInsets.zero,
     );
   }
 }
@@ -300,65 +296,60 @@ class _GoalFolderCard extends StatelessWidget {
     final progressPercent = (folder.goalProgress.clamp(0.0, 1.0) * 100).round();
     final latestTitle = folder.latestDocumentTitle?.trim();
 
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return AppSurfaceCard(
+      onTap: onTap,
+      margin: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  CircleAvatar(
-                    child: Icon(
-                      folder.hasDocuments
-                          ? Icons.folder_rounded
-                          : Icons.create_new_folder_outlined,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          folder.goalTitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          '${_goalStatusLabel(folder.goalStatus)} · $progressPercent% · ${folder.documentCount} 篇文档',
-                          style: theme.textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Icon(Icons.chevron_right_rounded),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                latestTitle == null || latestTitle.isEmpty
-                    ? '还没有文档，点进去创建过程记录或项目总结。'
-                    : '最近更新：$latestTitle',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium,
-              ),
-              if (folder.latestUpdatedAt != null) ...[
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  _formatDateTime(folder.latestUpdatedAt!),
-                  style: theme.textTheme.bodySmall,
+              CircleAvatar(
+                child: Icon(
+                  folder.hasDocuments
+                      ? Icons.folder_rounded
+                      : Icons.create_new_folder_outlined,
                 ),
-              ],
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      folder.goalTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      '${_goalStatusLabel(folder.goalStatus)} · $progressPercent% · ${folder.documentCount} 篇文档',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded),
             ],
           ),
-        ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            latestTitle == null || latestTitle.isEmpty
+                ? '还没有文档，点进去创建过程记录或项目总结。'
+                : '最近更新：$latestTitle',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium,
+          ),
+          if (folder.latestUpdatedAt != null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              _formatDateTime(folder.latestUpdatedAt!),
+              style: theme.textTheme.bodySmall,
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -377,57 +368,52 @@ class _DocumentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return AppSurfaceCard(
+      onTap: onTap,
+      margin: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      document.displayTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Chip(
-                    visualDensity: VisualDensity.compact,
-                    label: Text(document.type.label),
-                  ),
-                ],
+              Expanded(
+                child: Text(
+                  document.displayTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium,
+                ),
               ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                document.excerpt,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Row(
-                children: [
-                  Icon(
-                    Icons.schedule_rounded,
-                    size: 16,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: AppSpacing.xs),
-                  Text(
-                    '更新于 ${_formatDateTime(document.updatedAt)}',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                ],
+              const SizedBox(width: AppSpacing.sm),
+              Chip(
+                visualDensity: VisualDensity.compact,
+                label: Text(document.type.label),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            document.excerpt,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              Icon(
+                Icons.schedule_rounded,
+                size: 16,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                '更新于 ${_formatDateTime(document.updatedAt)}',
+                style: theme.textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:evoly/core/domain/priority.dart';
 import 'package:evoly/features/tasks/domain/task_item.dart';
+import 'package:evoly/shared/ui/components/app_components.dart';
 import 'package:evoly/shared/ui/motion/motion_tokens.dart';
 import 'package:evoly/shared/ui/tokens/app_spacing.dart';
+import 'package:evoly/shared/ui/tokens/evoly_design_tokens.dart';
 
 class TaskCard extends StatelessWidget {
   const TaskCard({
@@ -19,71 +21,104 @@ class TaskCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final tokens = EvolyDesignTokens.of(context);
     final textTheme = Theme.of(context).textTheme;
     final titleStyle = textTheme.titleMedium?.copyWith(
       decoration: task.isCompleted ? TextDecoration.lineThrough : null,
-      color: task.isCompleted ? colors.onPrimaryContainer : null,
+      color: task.isCompleted ? colors.onSurfaceVariant : null,
     );
     final subtitleStyle = textTheme.bodyMedium?.copyWith(
       decoration: task.isCompleted ? TextDecoration.lineThrough : null,
-      color: task.isCompleted ? colors.onPrimaryContainer : null,
+      color: colors.onSurfaceVariant,
     );
+    final priorityColor = _priorityColor(tokens, task.priority);
+    final statusColor = _statusColor(tokens, colors, task.status);
 
-    final cardRadius = BorderRadius.circular(16);
-
-    return Card(
-      elevation: 0,
-      shadowColor: Colors.transparent,
-      surfaceTintColor: Colors.transparent,
-      clipBehavior: Clip.none,
-      color: task.isCompleted
-          ? colors.primaryContainer.withValues(alpha: 0.72)
-          : colors.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: cardRadius,
-        side: BorderSide(
-          color: colors.outlineVariant.withValues(alpha: 0.52),
-        ),
+    return AppListCard(
+      selected: task.isCompleted,
+      compact: true,
+      leading: AnimatedSwitcher(
+        duration: MotionTokens.fast,
+        child: task.isCompleted
+            ? Icon(
+                Icons.check_circle_rounded,
+                key: const ValueKey('done'),
+                color: tokens.statusSuccess,
+              )
+            : IconButton(
+                key: const ValueKey('todo'),
+                tooltip: '完成任务',
+                onPressed: onComplete,
+                icon: const Icon(Icons.radio_button_unchecked_rounded),
+              ),
       ),
-      child: ListTile(
-        leading: AnimatedSwitcher(
-          duration: MotionTokens.fast,
-          child: task.isCompleted
-              ? Icon(
-                  Icons.check_circle_rounded,
-                  key: const ValueKey('done'),
-                  color: colors.primary,
-                )
-              : IconButton(
-                  key: const ValueKey('todo'),
-                  onPressed: onComplete,
-                  icon: const Icon(Icons.radio_button_unchecked_rounded),
-                ),
-        ),
-        title: Text(task.title, style: titleStyle),
-        subtitle: Text(_subtitle, style: subtitleStyle),
-        trailing: trailing,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.xs,
-        ),
+      title: Text(
+        task.title,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: titleStyle,
       ),
+      subtitle: task.description.trim().isEmpty
+          ? null
+          : Text(
+              task.description.trim(),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: subtitleStyle,
+            ),
+      meta: Wrap(
+        spacing: AppSpacing.xs,
+        runSpacing: AppSpacing.xs,
+        children: [
+          AppMetaPill(
+            label: '${task.priority.label}优先级',
+            icon: Icons.flag_rounded,
+            color: priorityColor,
+            selected: true,
+          ),
+          AppMetaPill(
+            label: '${task.estimatedMinutes} 分钟',
+            icon: Icons.timer_outlined,
+          ),
+          AppMetaPill(
+            label: task.status.label,
+            color: statusColor,
+            selected: task.status != TaskStatus.pending,
+          ),
+          if (task.dueDateTime != null)
+            AppMetaPill(
+              label: '截止 ${_formatTime(task.dueDateTime!)}',
+              icon: Icons.schedule_outlined,
+            ),
+        ],
+      ),
+      trailing: trailing,
     );
-  }
-
-  String get _subtitle {
-    final parts = [
-      '${task.priority.label}优先级',
-      '${task.estimatedMinutes} 分钟',
-      task.status.label,
-      if (task.dueDateTime != null) '截止 ${_formatTime(task.dueDateTime!)}',
-    ];
-
-    return parts.join(' · ');
   }
 
   String _formatTime(DateTime dateTime) {
     return '${dateTime.hour.toString().padLeft(2, '0')}:'
         '${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
+  Color _priorityColor(EvolyDesignTokens tokens, Priority priority) {
+    return switch (priority) {
+      Priority.high => tokens.priorityHigh,
+      Priority.medium => tokens.priorityMedium,
+      Priority.low => tokens.priorityLow,
+    };
+  }
+
+  Color _statusColor(
+    EvolyDesignTokens tokens,
+    ColorScheme colorScheme,
+    TaskStatus status,
+  ) {
+    return switch (status) {
+      TaskStatus.pending => tokens.statusNeutral,
+      TaskStatus.completed => tokens.statusSuccess,
+      TaskStatus.postponed => tokens.statusInfo,
+      TaskStatus.cancelled => colorScheme.error,
+    };
   }
 }

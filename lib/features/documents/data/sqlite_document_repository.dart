@@ -5,11 +5,16 @@ import 'package:evoly/features/documents/data/document_repository.dart';
 import 'package:evoly/features/documents/domain/document_folder_summary.dart';
 import 'package:evoly/features/documents/domain/evoly_document.dart';
 import 'package:evoly/features/goals/domain/goal.dart';
+import 'package:evoly/features/sync/application/sync_change_recorder.dart';
 
 class SqliteDocumentRepository implements DocumentRepository {
-  const SqliteDocumentRepository(this.database);
+  const SqliteDocumentRepository(
+    this.database, {
+    this.changeRecorder,
+  });
 
   final AppDatabase database;
+  final SyncChangeRecorder? changeRecorder;
 
   @override
   Future<List<EvolyDocument>> findAll({
@@ -226,15 +231,32 @@ class SqliteDocumentRepository implements DocumentRepository {
         );
       }
     });
+
+    await changeRecorder?.recordUpsert(
+      entityType: SyncEntityType.documentLinks,
+      entityId: documentId,
+      payload: {
+        'document_id': documentId,
+        'target_type': 'goal',
+        'goal_ids': uniqueGoalIds,
+        'updated_at': now,
+      },
+    );
   }
 
   @override
   Future<void> save(EvolyDocument document) async {
     final db = await database.database;
+    final payload = DocumentMapper.toMap(document);
     await db.insert(
       'documents',
-      DocumentMapper.toMap(document),
+      payload,
       conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+    await changeRecorder?.recordUpsert(
+      entityType: SyncEntityType.document,
+      entityId: document.id,
+      payload: payload,
     );
   }
 
@@ -250,6 +272,14 @@ class SqliteDocumentRepository implements DocumentRepository {
       },
       where: 'id = ?',
       whereArgs: [id],
+    );
+    await changeRecorder?.recordDelete(
+      entityType: SyncEntityType.document,
+      entityId: id,
+      payload: {
+        'id': id,
+        'deleted_at': now,
+      },
     );
   }
 }

@@ -2,18 +2,22 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
+import 'package:evoly/app/data_refresh_listener.dart';
 import 'package:evoly/app/router.dart';
 import 'package:evoly/core/domain/priority.dart';
 import 'package:evoly/features/goals/data/goal_repository.dart';
 import 'package:evoly/features/goals/domain/goal.dart';
 import 'package:evoly/features/goals/presentation/widgets/goal_edit_sheet.dart';
+import 'package:evoly/features/sync/presentation/sync_refresh_indicator.dart';
 import 'package:evoly/features/tasks/data/task_repository.dart';
 import 'package:evoly/features/tasks/domain/task_item.dart';
 import 'package:evoly/shared/ui/bottom_sheets/bottom_sheet_focus.dart';
 import 'package:evoly/shared/ui/bottom_sheets/responsive_bottom_sheet_body.dart';
 import 'package:evoly/shared/ui/components/animated_progress_bar.dart';
+import 'package:evoly/shared/ui/components/app_components.dart';
 import 'package:evoly/shared/ui/motion/motion_tokens.dart';
 import 'package:evoly/shared/ui/tokens/app_spacing.dart';
+import 'package:evoly/shared/ui/tokens/evoly_design_tokens.dart';
 import 'package:evoly/shared/widgets/empty_state.dart';
 import 'package:evoly/shared/widgets/evoly_navigation_bar.dart';
 import 'package:uuid/uuid.dart';
@@ -30,7 +34,8 @@ class GoalListPage extends StatefulWidget {
   State<GoalListPage> createState() => _GoalListPageState();
 }
 
-class _GoalListPageState extends State<GoalListPage> {
+class _GoalListPageState extends State<GoalListPage>
+    with DataRefreshListener<GoalListPage> {
   final List<Goal> _goals = [];
   var _loading = true;
   var _statusFilter = _GoalStatusFilter.active;
@@ -42,6 +47,9 @@ class _GoalListPageState extends State<GoalListPage> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadGoals());
   }
+
+  @override
+  Future<void> reloadDataForRefresh() => _loadGoals();
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +77,7 @@ class _GoalListPageState extends State<GoalListPage> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingState(label: '正在整理目标');
     }
 
     final errorMessage = _errorMessage;
@@ -110,36 +118,39 @@ class _GoalListPageState extends State<GoalListPage> {
       );
     }
 
-    return ListView.separated(
-      scrollCacheExtent: const ScrollCacheExtent.pixels(720),
-      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-      itemCount: visibleGoals.length + 1,
-      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.xs),
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return _GoalFilterBar(
-            selected: _statusFilter,
-            goals: _goals,
-            onChanged: (filter) => setState(() => _statusFilter = filter),
-          );
-        }
-
-        final goal = visibleGoals[index - 1];
-
-        return _GoalCard(
-          goal: goal,
-          onOpen: () async {
-            await Navigator.pushNamed(
-              context,
-              AppRoutes.goalDetail,
-              arguments: goal.id,
+    return SyncRefreshIndicator(
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        scrollCacheExtent: const ScrollCacheExtent.pixels(720),
+        padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+        itemCount: visibleGoals.length + 1,
+        separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.xs),
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return _GoalFilterBar(
+              selected: _statusFilter,
+              goals: _goals,
+              onChanged: (filter) => setState(() => _statusFilter = filter),
             );
-            await _loadGoals();
-          },
-          onEdit: () => _showEditGoalSheet(goal),
-          onDelete: () => _deleteGoal(goal),
-        );
-      },
+          }
+
+          final goal = visibleGoals[index - 1];
+
+          return _GoalCard(
+            goal: goal,
+            onOpen: () async {
+              await Navigator.pushNamed(
+                context,
+                AppRoutes.goalDetail,
+                arguments: goal.id,
+              );
+              await _loadGoals();
+            },
+            onEdit: () => _showEditGoalSheet(goal),
+            onDelete: () => _deleteGoal(goal),
+          );
+        },
+      ),
     );
   }
 
@@ -224,7 +235,12 @@ class _GoalListPageState extends State<GoalListPage> {
     final updated = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      requestFocus: false,
       showDragHandle: true,
+      sheetAnimationStyle: const AnimationStyle(
+        duration: MotionTokens.slow,
+        reverseDuration: MotionTokens.fast,
+      ),
       builder: (context) {
         return GoalEditSheet(
           goal: goal,
@@ -241,6 +257,9 @@ class _GoalListPageState extends State<GoalListPage> {
   Future<void> _saveGoal(Goal goal) async {
     try {
       await context.read<GoalRepository>().save(goal);
+      if (mounted) {
+        notifyDataChanged();
+      }
     } catch (error) {
       if (!mounted) {
         return;
@@ -293,6 +312,8 @@ class _GoalListPageState extends State<GoalListPage> {
       if (!mounted) {
         return;
       }
+
+      notifyDataChanged();
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('目标已删除')),
@@ -391,6 +412,9 @@ class _GoalListPageState extends State<GoalListPage> {
 
     await goalRepository.save(goal);
     await taskRepository.save(task);
+    if (mounted) {
+      notifyDataChanged();
+    }
   }
 }
 
@@ -842,8 +866,8 @@ class _GoalCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final colors = Theme.of(context).colorScheme;
+    final tokens = EvolyDesignTokens.of(context);
     final isCompleted = goal.status == GoalStatus.completed;
-    final cardRadius = BorderRadius.circular(18);
     final titleStyle = textTheme.titleSmall?.copyWith(
       decoration: isCompleted ? TextDecoration.lineThrough : null,
       color: isCompleted ? colors.onSurfaceVariant : null,
@@ -866,117 +890,98 @@ class _GoalCard extends StatelessWidget {
         onDelete();
         return false;
       },
-      child: Card(
-        elevation: 0,
-        shadowColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        clipBehavior: Clip.none,
-        color: isCompleted
-            ? colors.surfaceContainerHighest.withValues(alpha: 0.72)
-            : colors.surfaceContainerLow,
-        margin: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.xs,
+      child: AppSurfaceCard(
+        onTap: onOpen,
+        elevated: !isCompleted,
+        backgroundColor: isCompleted
+            ? colors.surfaceContainerHighest.withValues(alpha: 0.60)
+            : tokens.surfaceRaised,
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.compact,
+          AppSpacing.sm,
+          AppSpacing.compact,
         ),
-        shape: RoundedRectangleBorder(
-          borderRadius: cardRadius,
-          side: BorderSide(
-            color: colors.outlineVariant.withValues(alpha: 0.56),
-          ),
-        ),
-        child: InkWell(
-          borderRadius: cardRadius,
-          onTap: onOpen,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md,
-              AppSpacing.sm,
-              AppSpacing.sm,
-              AppSpacing.sm,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: _priorityColor(context, goal.priority),
-                        shape: BoxShape.circle,
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: _priorityColor(tokens, goal.priority)
+                        .withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                  ),
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: Center(
+                      child: Icon(
+                        Icons.flag_rounded,
+                        size: 12,
+                        color: _priorityColor(tokens, goal.priority),
                       ),
                     ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Text(
-                        goal.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: titleStyle,
-                      ),
-                    ),
-                    PopupMenuButton<_GoalCardAction>(
-                      icon: const Icon(Icons.more_horiz_rounded),
-                      iconSize: 20,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints.tightFor(
-                        width: 40,
-                        height: 40,
-                      ),
-                      onSelected: (action) {
-                        switch (action) {
-                          case _GoalCardAction.edit:
-                            onEdit();
-                          case _GoalCardAction.delete:
-                            onDelete();
-                        }
-                      },
-                      itemBuilder: (context) => const [
-                        PopupMenuItem(
-                          value: _GoalCardAction.edit,
-                          child: Text('编辑'),
-                        ),
-                        PopupMenuItem(
-                          value: _GoalCardAction.delete,
-                          child: Text('删除'),
-                        ),
-                      ],
-                    ),
-                  ],
+                  ),
                 ),
-                const SizedBox(height: AppSpacing.xs),
-                Row(
-                  children: [
-                    Expanded(
-                      child:
-                          AnimatedProgressBar(value: goal.normalizedProgress),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Text(
-                      '$progressPercent%',
-                      style: textTheme.labelSmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    goal.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: titleStyle,
+                  ),
                 ),
-                const SizedBox(height: AppSpacing.xs),
-                Wrap(
-                  spacing: AppSpacing.xs,
-                  runSpacing: AppSpacing.xs,
-                  children: [
-                    _GoalMetaPill(label: '优先级：${goal.priority.label}'),
-                    _GoalMetaPill(label: goal.status.label),
-                    if (goal.dueDate != null)
-                      _GoalMetaPill(label: '截止：${_formatDate(goal.dueDate!)}'),
-                  ],
+                IconButton(
+                  tooltip: '编辑目标',
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.more_horiz_rounded),
+                  iconSize: 22,
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: AppSpacing.sm),
+            Row(
+              children: [
+                Expanded(
+                  child: AnimatedProgressBar(value: goal.normalizedProgress),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  '$progressPercent%',
+                  style: textTheme.labelSmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: [
+                AppMetaPill(
+                  label: '优先级：${goal.priority.label}',
+                  icon: Icons.flag_rounded,
+                  color: _priorityColor(tokens, goal.priority),
+                  selected: true,
+                ),
+                AppStatusBadge(
+                  label: goal.status.label,
+                  color: _statusColor(tokens, colors, goal.status),
+                ),
+                if (goal.dueDate != null)
+                  AppMetaPill(
+                    label: '截止：${_formatDate(goal.dueDate!)}',
+                    icon: Icons.schedule_outlined,
+                  ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -987,45 +992,26 @@ class _GoalCard extends StatelessWidget {
         '${date.day.toString().padLeft(2, '0')}';
   }
 
-  Color _priorityColor(BuildContext context, Priority priority) {
-    final colors = Theme.of(context).colorScheme;
-
+  Color _priorityColor(EvolyDesignTokens tokens, Priority priority) {
     return switch (priority) {
-      Priority.high => colors.error,
-      Priority.medium => colors.tertiary,
-      Priority.low => colors.primary,
+      Priority.high => tokens.priorityHigh,
+      Priority.medium => tokens.priorityMedium,
+      Priority.low => tokens.priorityLow,
     };
   }
-}
 
-class _GoalMetaPill extends StatelessWidget {
-  const _GoalMetaPill({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: 2,
-        ),
-        child: Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: colors.onSurfaceVariant,
-                fontWeight: FontWeight.w500,
-              ),
-        ),
-      ),
-    );
+  Color _statusColor(
+    EvolyDesignTokens tokens,
+    ColorScheme colorScheme,
+    GoalStatus status,
+  ) {
+    return switch (status) {
+      GoalStatus.notStarted => tokens.statusNeutral,
+      GoalStatus.inProgress => tokens.statusInfo,
+      GoalStatus.completed => tokens.statusSuccess,
+      GoalStatus.paused => tokens.statusWarning,
+      GoalStatus.abandoned => colorScheme.error,
+    };
   }
 }
 
@@ -1067,9 +1053,4 @@ extension _GoalSortModeLabel on _GoalSortMode {
       _GoalSortMode.titleAsc => '名称 A-Z',
     };
   }
-}
-
-enum _GoalCardAction {
-  edit,
-  delete,
 }

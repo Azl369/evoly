@@ -42,7 +42,7 @@ class AppDatabase {
     _database = await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 3,
+        version: 5,
         onCreate: _createSchema,
         onUpgrade: _upgradeSchema,
         onOpen: _enableForeignKeys,
@@ -117,6 +117,8 @@ class AppDatabase {
 
     await _createRemindersSchema(db);
     await _createDocumentsSchema(db);
+    await _createSettingsSchema(db);
+    await _createSyncSchema(db);
 
     await _seedInitialData(db);
   }
@@ -128,6 +130,12 @@ class AppDatabase {
     }
     if (oldVersion < 3) {
       await _createDocumentsSchema(db);
+    }
+    if (oldVersion < 4) {
+      await _createSettingsSchema(db);
+    }
+    if (oldVersion < 5) {
+      await _createSyncSchema(db);
     }
   }
 
@@ -196,6 +204,80 @@ class AppDatabase {
     );
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_document_links_target ON document_links(target_type, target_id)',
+    );
+  }
+
+  Future<void> _createSettingsSchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+    ''');
+  }
+
+  Future<void> _createSyncSchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS device_identity (
+        id TEXT PRIMARY KEY,
+        device_name TEXT NOT NULL,
+        platform TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS sync_state (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS sync_outbox (
+        id TEXT PRIMARY KEY,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        device_id TEXT NOT NULL,
+        operation TEXT NOT NULL,
+        payload_json TEXT NOT NULL,
+        base_remote_revision INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        last_error TEXT
+      )
+    ''');
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_sync_outbox_created_at ON sync_outbox(created_at)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_sync_outbox_entity ON sync_outbox(entity_type, entity_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_sync_outbox_attempts ON sync_outbox(attempts)',
+    );
+
+    final now = _encodeDate(DateTime.now());
+    await db.insert(
+      'sync_state',
+      {
+        'key': 'sync_enabled',
+        'value': 'false',
+        'updated_at': now,
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+    await db.insert(
+      'sync_state',
+      {
+        'key': 'last_pulled_revision',
+        'value': '0',
+        'updated_at': now,
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore,
     );
   }
 

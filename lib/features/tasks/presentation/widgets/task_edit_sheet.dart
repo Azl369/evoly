@@ -6,7 +6,9 @@ import 'package:evoly/features/reminders/domain/reminder.dart';
 import 'package:evoly/features/reminders/presentation/task_reminder_picker.dart';
 import 'package:evoly/features/tasks/domain/task_item.dart';
 import 'package:evoly/shared/ui/bottom_sheets/responsive_bottom_sheet_body.dart';
+import 'package:evoly/shared/ui/components/slide_select_field.dart';
 import 'package:evoly/shared/ui/tokens/app_spacing.dart';
+import 'package:evoly/shared/ui/tokens/evoly_design_tokens.dart';
 
 class TaskEditSheet extends StatefulWidget {
   const TaskEditSheet({
@@ -108,69 +110,45 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
                 ),
               ],
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.compact),
             TextField(
               controller: _titleController,
               decoration: const InputDecoration(labelText: '任务名称'),
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.compact),
             TextField(
               controller: _descriptionController,
               minLines: 2,
               maxLines: 4,
               decoration: const InputDecoration(labelText: '任务说明'),
             ),
-            const SizedBox(height: AppSpacing.md),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<Priority>(
-                    initialValue: _selectedPriority,
-                    decoration: const InputDecoration(labelText: '优先级'),
-                    items: Priority.values.map((priority) {
-                      return DropdownMenuItem(
-                        value: priority,
-                        child: Text(priority.label),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      if (value == null) {
-                        return;
-                      }
-                      setState(() => _selectedPriority = value);
-                      _scheduleSave();
-                    },
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: DropdownButtonFormField<TaskStatus>(
-                    initialValue: _selectedStatus,
-                    decoration: const InputDecoration(labelText: '状态'),
-                    items: TaskStatus.values.map((status) {
-                      return DropdownMenuItem(
-                        value: status,
-                        child: Text(status.label),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      if (value == null) {
-                        return;
-                      }
-                      setState(() => _selectedStatus = value);
-                      _scheduleSave();
-                    },
-                  ),
-                ),
-              ],
+            const SizedBox(height: AppSpacing.compact),
+            SlideSelectField<Priority>(
+              label: '优先级',
+              values: const [Priority.high, Priority.medium, Priority.low],
+              value: _selectedPriority,
+              labelBuilder: (priority) => priority.label,
+              icon: Icons.flag_rounded,
+              colorBuilder: _priorityColor,
+              onChanged: _changePriority,
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.compact),
+            SlideSelectField<TaskStatus>(
+              label: '状态',
+              values: TaskStatus.values,
+              value: _selectedStatus,
+              labelBuilder: (status) => status.label,
+              icon: Icons.check_circle_rounded,
+              colorBuilder: _statusColor,
+              onChanged: _changeStatus,
+            ),
+            const SizedBox(height: AppSpacing.compact),
             TextField(
               controller: _minutesController,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(labelText: '预计耗时（分钟）'),
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.compact),
             SegmentedButton<_DueOption>(
               segments: const [
                 ButtonSegment(value: _DueOption.today, label: Text('今天')),
@@ -206,7 +184,7 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
                 _scheduleSave();
               },
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.compact),
             Text('提醒', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: AppSpacing.sm),
             TaskReminderPicker(
@@ -216,7 +194,7 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
                 _scheduleSave();
               },
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.compact),
             FilledButton.icon(
               onPressed: _close,
               icon: const Icon(Icons.check_rounded),
@@ -226,6 +204,24 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
         ),
       ),
     );
+  }
+
+  void _changePriority(Priority priority) {
+    if (priority == _selectedPriority) {
+      return;
+    }
+
+    setState(() => _selectedPriority = priority);
+    _scheduleSave();
+  }
+
+  void _changeStatus(TaskStatus status) {
+    if (status == _selectedStatus) {
+      return;
+    }
+
+    setState(() => _selectedStatus = status);
+    _scheduleSave();
   }
 
   void _scheduleSave() {
@@ -328,6 +324,28 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
       task.completedAt?.millisecondsSinceEpoch,
       remindAt?.millisecondsSinceEpoch,
     ].join('|');
+  }
+
+  Color _priorityColor(BuildContext context, Priority priority) {
+    final tokens = EvolyDesignTokens.of(context);
+
+    return switch (priority) {
+      Priority.high => tokens.priorityHigh,
+      Priority.medium => tokens.priorityMedium,
+      Priority.low => tokens.priorityLow,
+    };
+  }
+
+  Color _statusColor(BuildContext context, TaskStatus status) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final tokens = EvolyDesignTokens.of(context);
+
+    return switch (status) {
+      TaskStatus.pending => tokens.statusNeutral,
+      TaskStatus.completed => tokens.statusSuccess,
+      TaskStatus.postponed => tokens.statusInfo,
+      TaskStatus.cancelled => colorScheme.error,
+    };
   }
 }
 

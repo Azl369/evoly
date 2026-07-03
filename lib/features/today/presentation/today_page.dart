@@ -1,19 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
+import 'package:evoly/app/data_refresh_listener.dart';
 import 'package:evoly/app/router.dart';
 import 'package:evoly/core/domain/priority.dart';
 import 'package:evoly/features/coach/application/rule_based_coach_service.dart';
 import 'package:evoly/features/coach/domain/coach_insight.dart';
 import 'package:evoly/features/reminders/application/reminder_inbox.dart';
 import 'package:evoly/features/reminders/application/task_reminder_service.dart';
+import 'package:evoly/features/sync/presentation/sync_refresh_indicator.dart';
 import 'package:evoly/features/tasks/data/task_repository.dart';
 import 'package:evoly/features/tasks/domain/task_item.dart';
 import 'package:evoly/features/tasks/presentation/widgets/task_card.dart';
 import 'package:evoly/features/tasks/presentation/widgets/task_edit_sheet.dart';
 import 'package:evoly/shared/ui/components/animated_progress_bar.dart';
+import 'package:evoly/shared/ui/components/app_components.dart';
 import 'package:evoly/shared/ui/motion/motion_tokens.dart';
+import 'package:evoly/shared/ui/tokens/app_radii.dart';
 import 'package:evoly/shared/ui/tokens/app_spacing.dart';
+import 'package:evoly/shared/ui/tokens/evoly_design_tokens.dart';
 import 'package:evoly/shared/widgets/empty_state.dart';
 import 'package:evoly/shared/widgets/evoly_navigation_bar.dart';
 
@@ -31,7 +36,8 @@ class TodayPage extends StatefulWidget {
   State<TodayPage> createState() => _TodayPageState();
 }
 
-class _TodayPageState extends State<TodayPage> {
+class _TodayPageState extends State<TodayPage>
+    with DataRefreshListener<TodayPage> {
   final List<TaskItem> _tasks = [];
   var _loading = true;
   var _coachExpanded = true;
@@ -46,6 +52,9 @@ class _TodayPageState extends State<TodayPage> {
       await _showDueReminders();
     });
   }
+
+  @override
+  Future<void> reloadDataForRefresh() => _loadTasks();
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +80,7 @@ class _TodayPageState extends State<TodayPage> {
 
   Widget _buildBody(double progress) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingState(label: '正在整理今天');
     }
 
     final errorMessage = _errorMessage;
@@ -85,28 +94,31 @@ class _TodayPageState extends State<TodayPage> {
 
     final listEntries = _todayListEntries;
 
-    return ListView.builder(
-      scrollCacheExtent: const ScrollCacheExtent.pixels(720),
-      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-      itemCount: _tasks.isEmpty ? 2 : listEntries.length + 1,
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return _buildTodayOverview(progress);
-        }
+    return SyncRefreshIndicator(
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        scrollCacheExtent: const ScrollCacheExtent.pixels(720),
+        padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+        itemCount: _tasks.isEmpty ? 2 : listEntries.length + 1,
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return _buildTodayOverview(progress);
+          }
 
-        if (_tasks.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            child: EmptyState(
-              icon: Icons.task_alt_outlined,
-              title: '今天暂时没有任务',
-              message: '去目标页创建一个目标，让今天有个轻轻的抓手。',
-            ),
-          );
-        }
+          if (_tasks.isEmpty) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              child: EmptyState(
+                icon: Icons.task_alt_outlined,
+                title: '今天暂时没有任务',
+                message: '去目标页创建一个目标，让今天有个轻轻的抓手。',
+              ),
+            );
+          }
 
-        return _buildTodayListEntry(listEntries[index - 1]);
-      },
+          return _buildTodayListEntry(listEntries[index - 1]);
+        },
+      ),
     );
   }
 
@@ -149,15 +161,15 @@ class _TodayPageState extends State<TodayPage> {
   Widget _buildTodayListEntry(_TodayListEntry entry) {
     return switch (entry) {
       _TodayGroupHeaderEntry() => Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.md,
-            AppSpacing.md,
-            AppSpacing.md,
-            AppSpacing.xs,
-          ),
-          child: Text(
-            entry.title,
-            style: Theme.of(context).textTheme.titleSmall,
+          padding: EdgeInsets.zero,
+          child: AppSectionHeader(
+            title: entry.title,
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.compact,
+              AppSpacing.md,
+              AppSpacing.xs,
+            ),
           ),
         ),
       _TodayTaskEntry() => _TodayTaskRow(
@@ -463,6 +475,8 @@ class _TodayPageState extends State<TodayPage> {
         return;
       }
 
+      notifyDataChanged();
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('已延期 ${updatedTasks.length} 个任务，今天保留 Top 3')),
       );
@@ -523,6 +537,8 @@ class _TodayPageState extends State<TodayPage> {
       if (!mounted) {
         return;
       }
+
+      notifyDataChanged();
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('任务已删除')),
@@ -598,6 +614,7 @@ class _TodayPageState extends State<TodayPage> {
       setState(() {
         _coachInsight = coachInsight;
       });
+      notifyDataChanged();
     } catch (error) {
       if (!mounted) {
         return;
@@ -910,65 +927,145 @@ class _CoachInsightCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final tokens = EvolyDesignTokens.of(context);
     final insight = this.insight;
+    final isDark = colorScheme.brightness == Brightness.dark;
+    final accentColor = tokens.coachAccent;
+    final cardColor = Color.alphaBlend(
+      accentColor.withValues(alpha: isDark ? 0.055 : 0.030),
+      tokens.surfaceRaised,
+    );
+    final borderColor = tokens.outlineSubtle;
 
-    return Card(
-      elevation: 0,
-      color: colorScheme.secondaryContainer.withValues(alpha: 0.7),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return AppSurfaceCard(
+      margin: EdgeInsets.zero,
+      padding: EdgeInsets.zero,
+      elevated: !isDark,
+      backgroundColor: cardColor,
+      borderColor: borderColor,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(),
+        child: Stack(
           children: [
-            InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: onToggleExpanded,
-              child: Row(
+            Positioned(
+              top: 0,
+              bottom: 0,
+              left: 0,
+              width: 3,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: isDark ? 0.52 : 0.42),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.psychology_alt_outlined,
-                    color: colorScheme.onSecondaryContainer,
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Text(
-                      'Evoly Coach 今日建议',
-                      style: textTheme.titleMedium?.copyWith(
-                        color: colorScheme.onSecondaryContainer,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(AppRadii.md),
+                    onTap: onToggleExpanded,
+                    child: Row(
+                      children: [
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: accentColor.withValues(
+                              alpha: isDark ? 0.18 : 0.12,
+                            ),
+                            borderRadius: BorderRadius.circular(AppRadii.md),
+                            border: Border.all(
+                              color: accentColor.withValues(alpha: 0.16),
+                            ),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(7),
+                            child: Icon(
+                              Icons.psychology_alt_outlined,
+                              color: accentColor,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Text(
+                            'Evoly Coach 今日建议',
+                            style: textTheme.titleMedium?.copyWith(
+                              color: colorScheme.onSurface,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        AnimatedRotation(
+                          turns: expanded ? 0.5 : 0,
+                          duration: MotionTokens.fast,
+                          curve: MotionTokens.standard,
+                          child: Icon(
+                            Icons.keyboard_arrow_down,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  AnimatedRotation(
-                    turns: expanded ? 0.5 : 0,
-                    duration: MotionTokens.fast,
+                  AnimatedSize(
+                    duration: MotionTokens.normal,
                     curve: MotionTokens.standard,
-                    child: const Icon(Icons.keyboard_arrow_down),
+                    alignment: Alignment.topCenter,
+                    child: expanded
+                        ? Padding(
+                            padding: const EdgeInsets.only(top: AppSpacing.md),
+                            child: insight == null
+                                ? const _CoachLoadingContent()
+                                : _CoachInsightContent(
+                                    insight: insight,
+                                    onCreateFirstAction: onCreateFirstAction,
+                                    onOpenFirstTopTask: onOpenFirstTopTask,
+                                    onKeepOnlyTopTasks: onKeepOnlyTopTasks,
+                                    onOpenFirstDelayedGoal:
+                                        onOpenFirstDelayedGoal,
+                                    onReviewCompletedDay: onReviewCompletedDay,
+                                  ),
+                          )
+                        : const SizedBox.shrink(),
                   ),
                 ],
               ),
             ),
-            AnimatedSize(
-              duration: MotionTokens.normal,
-              curve: MotionTokens.standard,
-              alignment: Alignment.topCenter,
-              child: expanded
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: AppSpacing.md),
-                      child: insight == null
-                          ? const _CoachLoadingContent()
-                          : _CoachInsightContent(
-                              insight: insight,
-                              onCreateFirstAction: onCreateFirstAction,
-                              onOpenFirstTopTask: onOpenFirstTopTask,
-                              onKeepOnlyTopTasks: onKeepOnlyTopTasks,
-                              onOpenFirstDelayedGoal: onOpenFirstDelayedGoal,
-                              onReviewCompletedDay: onReviewCompletedDay,
-                            ),
-                    )
-                  : const SizedBox.shrink(),
-            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CoachSoftIcon extends StatelessWidget {
+  const _CoachSoftIcon({
+    required this.icon,
+    required this.color,
+    this.size = 18,
+  });
+
+  final IconData icon;
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).colorScheme.brightness == Brightness.dark;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: isDark ? 0.16 : 0.10),
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(5),
+        child: Icon(
+          icon,
+          size: size,
+          color: color,
         ),
       ),
     );
@@ -1016,12 +1113,18 @@ class _CoachInsightContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(insight.summary, style: textTheme.bodyMedium),
+        Text(
+          insight.summary,
+          style: textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
         const SizedBox(height: AppSpacing.sm),
         Wrap(
           spacing: AppSpacing.sm,
@@ -1146,10 +1249,44 @@ class _CoachMetricChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Chip(
-      visualDensity: VisualDensity.compact,
-      avatar: Icon(icon, size: 16),
-      label: Text(label),
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final isDark = colorScheme.brightness == Brightness.dark;
+    final accentColor = colorScheme.primary;
+    final backgroundColor = Color.alphaBlend(
+      accentColor.withValues(alpha: isDark ? 0.10 : 0.045),
+      isDark
+          ? colorScheme.surfaceContainerHighest
+          : colorScheme.surfaceContainerLowest,
+    );
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(
+            alpha: isDark ? 0.24 : 0.55,
+          ),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 15, color: accentColor),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: textTheme.labelMedium?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1161,15 +1298,17 @@ class _CoachTopTaskTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Padding(
       padding: const EdgeInsets.only(top: AppSpacing.xs),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.radio_button_checked,
-            size: 18,
-            color: Theme.of(context).colorScheme.primary,
+          _CoachSoftIcon(
+            icon: Icons.radio_button_checked,
+            color: colorScheme.primary,
+            size: 15,
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
@@ -1202,14 +1341,20 @@ class _CoachDelayedGoalTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final warningColor = colorScheme.error.withValues(
+      alpha: colorScheme.brightness == Brightness.dark ? 0.86 : 0.78,
+    );
+
     return Padding(
       padding: const EdgeInsets.only(top: AppSpacing.xs),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.flag_circle_outlined,
-            size: 18,
-            color: Theme.of(context).colorScheme.error,
+          _CoachSoftIcon(
+            icon: Icons.flag_circle_outlined,
+            color: warningColor,
+            size: 15,
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
@@ -1231,10 +1376,11 @@ class _CoachSuggestionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final color = switch (suggestion.severity) {
-      CoachSuggestionSeverity.success => Theme.of(context).colorScheme.primary,
-      CoachSuggestionSeverity.warning => Theme.of(context).colorScheme.error,
-      CoachSuggestionSeverity.info => Theme.of(context).colorScheme.secondary,
+      CoachSuggestionSeverity.success => colorScheme.tertiary,
+      CoachSuggestionSeverity.warning => colorScheme.error,
+      CoachSuggestionSeverity.info => colorScheme.secondary,
     };
 
     return Padding(
@@ -1242,7 +1388,11 @@ class _CoachSuggestionTile extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.auto_awesome_outlined, size: 18, color: color),
+          _CoachSoftIcon(
+            icon: Icons.auto_awesome_outlined,
+            color: color,
+            size: 15,
+          ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(

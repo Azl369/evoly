@@ -2,12 +2,17 @@ import 'package:evoly/core/database/app_database.dart';
 import 'package:evoly/features/reminders/data/reminder_mapper.dart';
 import 'package:evoly/features/reminders/data/reminder_repository.dart';
 import 'package:evoly/features/reminders/domain/reminder.dart';
+import 'package:evoly/features/sync/application/sync_change_recorder.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class SqliteReminderRepository implements ReminderRepository {
-  const SqliteReminderRepository(this.database);
+  const SqliteReminderRepository(
+    this.database, {
+    this.changeRecorder,
+  });
 
   final AppDatabase database;
+  final SyncChangeRecorder? changeRecorder;
 
   @override
   Future<List<Reminder>> findEnabled() async {
@@ -75,39 +80,72 @@ class SqliteReminderRepository implements ReminderRepository {
   @override
   Future<void> save(Reminder reminder) async {
     final db = await database.database;
+    final payload = ReminderMapper.toMap(reminder);
     await db.insert(
       'reminders',
-      ReminderMapper.toMap(reminder),
+      payload,
       conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+    await changeRecorder?.recordUpsert(
+      entityType: SyncEntityType.reminder,
+      entityId: reminder.id,
+      payload: payload,
     );
   }
 
   @override
   Future<void> disable(String id) async {
     final db = await database.database;
+    final now = AppDatabaseDateCodec.encodeDate(DateTime.now());
     await db.update(
       'reminders',
       {
         'enabled': 0,
-        'updated_at': AppDatabaseDateCodec.encodeDate(DateTime.now()),
+        'updated_at': now,
       },
       where: 'id = ?',
       whereArgs: [id],
     );
+    final rows = await db.query(
+      'reminders',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isNotEmpty) {
+      await changeRecorder?.recordUpsert(
+        entityType: SyncEntityType.reminder,
+        entityId: id,
+        payload: rows.first,
+      );
+    }
   }
 
   @override
   Future<void> disableForTask(String taskId) async {
     final db = await database.database;
+    final now = AppDatabaseDateCodec.encodeDate(DateTime.now());
     await db.update(
       'reminders',
       {
         'enabled': 0,
-        'updated_at': AppDatabaseDateCodec.encodeDate(DateTime.now()),
+        'updated_at': now,
       },
       where: 'target_type = ? AND target_id = ?',
       whereArgs: [ReminderTargetType.task.name, taskId],
     );
+    final rows = await db.query(
+      'reminders',
+      where: 'target_type = ? AND target_id = ?',
+      whereArgs: [ReminderTargetType.task.name, taskId],
+    );
+    for (final row in rows) {
+      await changeRecorder?.recordUpsert(
+        entityType: SyncEntityType.reminder,
+        entityId: row['id']! as String,
+        payload: row,
+      );
+    }
   }
 
   @override

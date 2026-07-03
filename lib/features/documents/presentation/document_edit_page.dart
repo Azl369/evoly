@@ -7,8 +7,10 @@ import 'package:evoly_markdown_music_preview/evoly_markdown_music_preview.dart';
 import 'package:evoly/features/documents/data/document_repository.dart';
 import 'package:evoly/features/documents/domain/evoly_document.dart';
 import 'package:evoly/features/documents/presentation/markdown_math_support.dart';
+import 'package:evoly/features/documents/presentation/markdown_music_safe_support.dart';
 import 'package:evoly/features/goals/data/goal_repository.dart';
 import 'package:evoly/features/goals/domain/goal.dart';
+import 'package:evoly/shared/ui/components/app_components.dart';
 import 'package:evoly/shared/ui/tokens/app_spacing.dart';
 import 'package:evoly/shared/widgets/empty_state.dart';
 
@@ -129,7 +131,7 @@ class _DocumentEditPageState extends State<DocumentEditPage> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingState(label: '正在打开文档');
     }
 
     final errorMessage = _errorMessage;
@@ -759,12 +761,12 @@ class _DocumentPreview extends StatelessWidget {
           data: '# $displayTitle\n\n> ${type.label}\n\n$content',
           blockSyntaxes: [
             ...MarkdownMathSupport.blockSyntaxes,
-            ...MarkdownMusicSupport.blockSyntaxes(),
+            ...SafeMarkdownMusicSupport.blockSyntaxes(),
           ],
           inlineSyntaxes: MarkdownMathSupport.inlineSyntaxes(),
           builders: {
             ...MarkdownMathSupport.builders(),
-            ...MarkdownMusicSupport.builders(),
+            ...SafeMarkdownMusicSupport.builders(),
           },
           styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
             h1: theme.textTheme.headlineMedium?.copyWith(

@@ -25,6 +25,7 @@ dependencies:
     git:
       url: git@github.com-evoly:Azl369/evoly-markdown-music-preview.git
       ref: main
+  supabase_flutter: ^2.15.4
 
 dev_dependencies:
   flutter_test:

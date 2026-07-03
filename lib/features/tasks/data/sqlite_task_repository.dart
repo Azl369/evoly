@@ -1,13 +1,18 @@
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:evoly/core/database/app_database.dart';
+import 'package:evoly/features/sync/application/sync_change_recorder.dart';
 import 'package:evoly/features/tasks/data/task_mapper.dart';
 import 'package:evoly/features/tasks/data/task_repository.dart';
 import 'package:evoly/features/tasks/domain/task_item.dart';
 
 class SqliteTaskRepository implements TaskRepository {
-  const SqliteTaskRepository(this.database);
+  const SqliteTaskRepository(
+    this.database, {
+    this.changeRecorder,
+  });
 
   final AppDatabase database;
+  final SyncChangeRecorder? changeRecorder;
 
   @override
   Future<TaskItem?> findById(String id) async {
@@ -73,10 +78,16 @@ class SqliteTaskRepository implements TaskRepository {
   @override
   Future<void> save(TaskItem task) async {
     final db = await database.database;
+    final payload = TaskMapper.toMap(task);
     await db.insert(
       'tasks',
-      TaskMapper.toMap(task),
+      payload,
       conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+    await changeRecorder?.recordUpsert(
+      entityType: SyncEntityType.task,
+      entityId: task.id,
+      payload: payload,
     );
   }
 
@@ -84,5 +95,9 @@ class SqliteTaskRepository implements TaskRepository {
   Future<void> delete(String id) async {
     final db = await database.database;
     await db.delete('tasks', where: 'id = ?', whereArgs: [id]);
+    await changeRecorder?.recordDelete(
+      entityType: SyncEntityType.task,
+      entityId: id,
+    );
   }
 }

@@ -60,10 +60,12 @@ class MarkdownBlockMathSyntax extends md.BlockSyntax {
       parser.advance();
     }
 
-    return md.Element.text(
-      _MarkdownMathTags.block,
-      lines.join('\n').trim(),
-    );
+    final tex = lines.join('\n').trim();
+    if (tex.isEmpty) {
+      return md.Element('p', const []);
+    }
+
+    return md.Element.text(_MarkdownMathTags.block, tex);
   }
 }
 
@@ -74,6 +76,15 @@ class MarkdownMathBuilder extends MarkdownElementBuilder {
 
   @override
   bool isBlockElement() => displayMode;
+
+  @override
+  Widget? visitText(md.Text text, TextStyle? preferredStyle) {
+    if (!displayMode) {
+      return null;
+    }
+
+    return const SizedBox.shrink();
+  }
 
   @override
   Widget visitElementAfterWithContext(
