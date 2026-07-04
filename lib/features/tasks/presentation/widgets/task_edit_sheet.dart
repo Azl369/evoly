@@ -6,7 +6,7 @@ import 'package:evoly/features/reminders/domain/reminder.dart';
 import 'package:evoly/features/reminders/presentation/task_reminder_picker.dart';
 import 'package:evoly/features/tasks/domain/task_item.dart';
 import 'package:evoly/shared/ui/bottom_sheets/responsive_bottom_sheet_body.dart';
-import 'package:evoly/shared/ui/components/slide_select_field.dart';
+import 'package:evoly/shared/ui/tokens/app_radii.dart';
 import 'package:evoly/shared/ui/tokens/app_spacing.dart';
 import 'package:evoly/shared/ui/tokens/evoly_design_tokens.dart';
 
@@ -123,22 +123,22 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
               decoration: const InputDecoration(labelText: '任务说明'),
             ),
             const SizedBox(height: AppSpacing.compact),
-            SlideSelectField<Priority>(
+            _TaskOptionGroup<Priority>(
               label: '优先级',
               values: const [Priority.high, Priority.medium, Priority.low],
               value: _selectedPriority,
               labelBuilder: (priority) => priority.label,
-              icon: Icons.flag_rounded,
+              iconBuilder: (_) => Icons.flag_rounded,
               colorBuilder: _priorityColor,
               onChanged: _changePriority,
             ),
             const SizedBox(height: AppSpacing.compact),
-            SlideSelectField<TaskStatus>(
+            _TaskOptionGroup<TaskStatus>(
               label: '状态',
               values: TaskStatus.values,
               value: _selectedStatus,
               labelBuilder: (status) => status.label,
-              icon: Icons.check_circle_rounded,
+              iconBuilder: _statusIcon,
               colorBuilder: _statusColor,
               onChanged: _changeStatus,
             ),
@@ -346,6 +346,131 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
       TaskStatus.postponed => tokens.statusInfo,
       TaskStatus.cancelled => colorScheme.error,
     };
+  }
+
+  IconData _statusIcon(TaskStatus status) {
+    return switch (status) {
+      TaskStatus.pending => Icons.radio_button_unchecked_rounded,
+      TaskStatus.completed => Icons.check_circle_rounded,
+      TaskStatus.postponed => Icons.event_repeat_rounded,
+      TaskStatus.cancelled => Icons.cancel_rounded,
+    };
+  }
+}
+
+class _TaskOptionGroup<T> extends StatelessWidget {
+  const _TaskOptionGroup({
+    required this.label,
+    required this.values,
+    required this.value,
+    required this.labelBuilder,
+    required this.iconBuilder,
+    required this.colorBuilder,
+    required this.onChanged,
+  });
+
+  final String label;
+  final List<T> values;
+  final T value;
+  final String Function(T value) labelBuilder;
+  final IconData Function(T value) iconBuilder;
+  final Color Function(BuildContext context, T value) colorBuilder;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return FocusTraversalGroup(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.xs,
+            children: [
+              for (final option in values)
+                _TaskOptionChip<T>(
+                  label: labelBuilder(option),
+                  icon: iconBuilder(option),
+                  color: colorBuilder(context, option),
+                  selected: option == value,
+                  onSelected: () => onChanged(option),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TaskOptionChip<T> extends StatelessWidget {
+  const _TaskOptionChip({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final tokens = EvolyDesignTokens.of(context);
+    final selectedAlpha =
+        colorScheme.brightness == Brightness.dark ? 0.18 : 0.12;
+    final backgroundColor = selected
+        ? Color.alphaBlend(
+            color.withValues(alpha: selectedAlpha),
+            tokens.surfaceRaised,
+          )
+        : tokens.surfaceSubtle;
+    final foregroundColor = selected ? color : colorScheme.onSurface;
+    final borderColor =
+        selected ? color.withValues(alpha: 0.44) : tokens.outlineSubtle;
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 72, minHeight: 36),
+      child: ChoiceChip(
+        selected: selected,
+        showCheckmark: false,
+        mouseCursor: SystemMouseCursors.click,
+        avatar: Icon(
+          icon,
+          size: 16,
+          color: foregroundColor,
+        ),
+        label: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        labelPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+        labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: foregroundColor,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            ),
+        backgroundColor: backgroundColor,
+        selectedColor: backgroundColor,
+        side: BorderSide(color: borderColor),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.md),
+        ),
+        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        onSelected: (_) => onSelected(),
+      ),
+    );
   }
 }
 

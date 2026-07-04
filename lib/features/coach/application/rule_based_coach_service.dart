@@ -49,8 +49,8 @@ class RuleBasedCoachService {
           CoachSuggestion(
             type: CoachSuggestionType.empty,
             severity: CoachSuggestionSeverity.info,
-            title: '添加一个最小行动',
-            description: '去目标页给今天放一个 15 到 30 分钟能完成的小任务。',
+            title: '添加今日任务',
+            description: '创建一个 15 到 30 分钟的任务。',
           ),
         ],
       );
@@ -59,7 +59,7 @@ class RuleBasedCoachService {
     if (pendingTasks.isEmpty) {
       return CoachInsight(
         status: CoachInsightStatus.completed,
-        summary: '今天的任务已经全部完成，漂亮。',
+        summary: '今天的任务已全部完成。',
         pendingTaskCount: 0,
         completedTaskCount: completedTaskCount,
         totalEstimatedMinutes: 0,
@@ -69,8 +69,8 @@ class RuleBasedCoachService {
           CoachSuggestion(
             type: CoachSuggestionType.celebration,
             severity: CoachSuggestionSeverity.success,
-            title: '收个漂亮尾',
-            description: '可以用 3 分钟记一下今天做对了什么，明天继续复用。',
+            title: '记录复盘',
+            description: '用 3 分钟记录今天的完成情况。',
           ),
         ],
       );
@@ -180,16 +180,16 @@ class RuleBasedCoachService {
   String _reasonFor(CoachTaskContext task, DateTime now) {
     final dueDate = task.dueDateTime;
     if (dueDate != null && dueDate.isBefore(now)) {
-      return '已经过了计划时间，适合先收掉';
+      return '已过计划时间';
     }
     if (task.priority == Priority.high) {
-      return '高优先级，最能推动目标';
+      return '高优先级';
     }
     if (dueDate != null && dueDate.difference(now).inHours <= 3) {
-      return '截止时间靠前，先做更稳';
+      return '截止时间靠前';
     }
 
-    return '优先级和时间都比较靠前';
+    return '优先级和时间靠前';
   }
 
   List<CoachSuggestion> _buildSuggestions({
@@ -206,7 +206,7 @@ class RuleBasedCoachService {
         const CoachSuggestion(
           type: CoachSuggestionType.reduce,
           severity: CoachSuggestionSeverity.warning,
-          title: '今天先收缩战线',
+          title: '减少今日任务',
           description: '建议只保留最重要的 3 件事，其他任务延期或降级处理。',
         ),
       );
@@ -218,7 +218,7 @@ class RuleBasedCoachService {
           type: CoachSuggestionType.focus,
           severity: CoachSuggestionSeverity.info,
           title: '先做最高优先级',
-          description: '从 Top 3 里的第一项开始，完成后再决定要不要继续加码。',
+          description: '从 Top 3 的第一项开始，完成后再处理下一项。',
         ),
       );
     }
@@ -239,8 +239,8 @@ class RuleBasedCoachService {
         const CoachSuggestion(
           type: CoachSuggestionType.focus,
           severity: CoachSuggestionSeverity.info,
-          title: '节奏不错',
-          description: '今天任务量可控，按 Top 3 顺序推进就好。',
+          title: '任务量可控',
+          description: '按 Top 3 顺序处理。',
         ),
       );
     }
@@ -256,13 +256,13 @@ class RuleBasedCoachService {
     required bool hasDelayRisk,
   }) {
     if (overloadedByCount || overloadedByTime) {
-      return '今天有 $pendingTaskCount 个未完成任务，预计 $totalEstimatedMinutes 分钟，建议别硬扛。';
+      return '今天有 $pendingTaskCount 个未完成任务，预计 $totalEstimatedMinutes 分钟，建议保留 Top 3。';
     }
 
     if (hasDelayRisk) {
       return '今天任务量可控，但有目标出现延期信号。';
     }
 
-    return '今天有 $pendingTaskCount 个待完成任务，节奏看起来可控。';
+    return '今天有 $pendingTaskCount 个待完成任务，任务量可控。';
   }
 }

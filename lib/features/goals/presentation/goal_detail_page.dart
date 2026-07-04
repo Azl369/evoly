@@ -151,7 +151,7 @@ class _GoalDetailPageState extends State<GoalDetailPage>
             const EmptyState(
               icon: Icons.playlist_add_check_outlined,
               title: '还没有子任务',
-              message: '新增一个小步骤，目标就会开始向前滚动。',
+              message: '点击新增创建子任务。',
             )
           else
             for (final task in _tasks)
@@ -649,9 +649,7 @@ class _GoalDocumentsSection extends StatelessWidget {
             const SizedBox(height: AppSpacing.xs),
             if (documents.isEmpty)
               Text(
-                goal.status == GoalStatus.completed
-                    ? '目标已完成，可以写一篇项目总结，把过程沉淀下来。'
-                    : '这个目标文件夹还没有文档。记录过程、问题和经验，目标就不只是一串任务了。',
+                goal.status == GoalStatus.completed ? '可创建项目总结。' : '暂无文档。',
                 style: theme.textTheme.bodyMedium,
               )
             else

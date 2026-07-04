@@ -8,13 +8,19 @@ class ReminderInbox {
     required this.reminderRepository,
     required this.taskRepository,
     required this.notificationService,
+    this.remindersPaused,
   });
 
   final ReminderRepository reminderRepository;
   final TaskRepository taskRepository;
   final NotificationService notificationService;
+  final bool Function(DateTime now)? remindersPaused;
 
   Future<List<DueReminderMessage>> collectDueMessages(DateTime now) async {
+    if (remindersPaused?.call(now) ?? false) {
+      return const [];
+    }
+
     final reminders = await reminderRepository.findDue(now);
     final messages = <DueReminderMessage>[];
 

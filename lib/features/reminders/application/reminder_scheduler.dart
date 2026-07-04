@@ -31,7 +31,7 @@ class ReminderScheduler {
       await notificationService.schedule(
         id: reminder.id,
         title: '目标提醒',
-        body: '别忘了今天的小目标。',
+        body: '有一个计划需要推进。',
         scheduledAt: reminder.remindAt,
       );
     }

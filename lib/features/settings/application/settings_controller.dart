@@ -30,6 +30,65 @@ class SettingsController extends ChangeNotifier {
     await _save(settings.copyWith(themePreset: themePreset));
   }
 
+  Future<void> updateWindowsCloseBehavior(
+    WindowsCloseBehavior behavior,
+  ) async {
+    if (settings.windowsCloseBehavior == behavior) {
+      return;
+    }
+
+    await _save(settings.copyWith(windowsCloseBehavior: behavior));
+  }
+
+  Future<void> updateWindowsTrayClickBehavior(
+    WindowsTrayClickBehavior behavior,
+  ) async {
+    if (settings.windowsTrayClickBehavior == behavior) {
+      return;
+    }
+
+    await _save(settings.copyWith(windowsTrayClickBehavior: behavior));
+  }
+
+  Future<void> updateWindowsCompactAlwaysOnTop(bool alwaysOnTop) async {
+    if (settings.windowsCompactAlwaysOnTop == alwaysOnTop) {
+      return;
+    }
+
+    await _save(
+      settings.copyWith(windowsCompactAlwaysOnTop: alwaysOnTop),
+    );
+  }
+
+  Future<void> updateWindowsCompactPosition(Offset? position) async {
+    final nextSettings = settings.copyWith(
+      windowsCompactPositionX: position?.dx,
+      windowsCompactPositionY: position?.dy,
+    );
+    if (settings.windowsCompactPosition ==
+        nextSettings.windowsCompactPosition) {
+      return;
+    }
+
+    await _save(nextSettings);
+  }
+
+  Future<void> pauseWindowsRemindersFor(Duration duration) async {
+    await _save(
+      settings.copyWith(
+        windowsReminderPauseUntil: DateTime.now().add(duration),
+      ),
+    );
+  }
+
+  Future<void> resumeWindowsReminders() async {
+    if (settings.windowsReminderPauseUntil == null) {
+      return;
+    }
+
+    await _save(settings.copyWith(windowsReminderPauseUntil: null));
+  }
+
   Future<void> _save(AppSettings nextSettings) async {
     settings = nextSettings;
     notifyListeners();

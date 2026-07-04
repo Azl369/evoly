@@ -95,7 +95,7 @@ class _GoalListPageState extends State<GoalListPage>
       return const EmptyState(
         icon: Icons.flag_outlined,
         title: '还没有目标',
-        message: '点右上角的加号，给今天埋下一颗小种子。',
+        message: '点击右上角新建目标。',
       );
     }
 
@@ -111,7 +111,7 @@ class _GoalListPageState extends State<GoalListPage>
             child: EmptyState(
               icon: Icons.filter_alt_off_outlined,
               title: '没有符合条件的目标',
-              message: '换个筛选条件看看，目标可能只是躲起来了。',
+              message: '请调整筛选条件。',
             ),
           ),
         ],

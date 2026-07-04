@@ -19,37 +19,37 @@ extension EvolyThemePresetInfo on EvolyThemePreset {
 
   String get label {
     return switch (this) {
-      EvolyThemePreset.orbitBlue => '默认蓝',
-      EvolyThemePreset.forestGreen => '森林绿',
-      EvolyThemePreset.sunriseCoral => '日出暖橙',
-      EvolyThemePreset.graphiteFocus => '墨灰',
+      EvolyThemePreset.orbitBlue => '星轨蓝',
+      EvolyThemePreset.forestGreen => '极光绿',
+      EvolyThemePreset.sunriseCoral => '暮光橙',
+      EvolyThemePreset.graphiteFocus => '石墨 HUD',
     };
   }
 
   Color get seedColor {
     return switch (this) {
-      EvolyThemePreset.orbitBlue => const Color(0xFF5B6CFF),
-      EvolyThemePreset.forestGreen => const Color(0xFF2F7D5B),
-      EvolyThemePreset.sunriseCoral => const Color(0xFFE66A4E),
-      EvolyThemePreset.graphiteFocus => const Color(0xFF5F6F7A),
+      EvolyThemePreset.orbitBlue => const Color(0xFF6EA8FF),
+      EvolyThemePreset.forestGreen => const Color(0xFF37C98B),
+      EvolyThemePreset.sunriseCoral => const Color(0xFFFF8A5B),
+      EvolyThemePreset.graphiteFocus => const Color(0xFF8AA0B8),
     };
   }
 
   Color get secondarySeedColor {
     return switch (this) {
-      EvolyThemePreset.orbitBlue => const Color(0xFF1F9BB4),
-      EvolyThemePreset.forestGreen => const Color(0xFF4C8C4A),
-      EvolyThemePreset.sunriseCoral => const Color(0xFFD08C2E),
-      EvolyThemePreset.graphiteFocus => const Color(0xFF6D7C5F),
+      EvolyThemePreset.orbitBlue => const Color(0xFF28D8C0),
+      EvolyThemePreset.forestGreen => const Color(0xFF66D9E8),
+      EvolyThemePreset.sunriseCoral => const Color(0xFF35C2A6),
+      EvolyThemePreset.graphiteFocus => const Color(0xFF5EEAD4),
     };
   }
 
   Color get tertiarySeedColor {
     return switch (this) {
-      EvolyThemePreset.orbitBlue => const Color(0xFF7C5CFF),
-      EvolyThemePreset.forestGreen => const Color(0xFFC58F2A),
-      EvolyThemePreset.sunriseCoral => const Color(0xFF4F8D7A),
-      EvolyThemePreset.graphiteFocus => const Color(0xFF9A6A58),
+      EvolyThemePreset.orbitBlue => const Color(0xFF9C7CFF),
+      EvolyThemePreset.forestGreen => const Color(0xFFE5B454),
+      EvolyThemePreset.sunriseCoral => const Color(0xFF7DA8FF),
+      EvolyThemePreset.graphiteFocus => const Color(0xFFC084FC),
     };
   }
 

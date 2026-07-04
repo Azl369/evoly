@@ -28,7 +28,7 @@ class EvolyDocument {
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
     if (normalized.isEmpty) {
-      return '还没有正文，点开写下第一段沉淀。';
+      return '暂无正文。';
     }
     if (normalized.length <= 80) {
       return normalized;
@@ -70,7 +70,7 @@ extension DocumentTypeLabel on DocumentType {
       DocumentType.projectNote => '项目文档',
       DocumentType.projectSummary => '项目总结',
       DocumentType.review => '复盘记录',
-      DocumentType.knowledge => '知识沉淀',
+      DocumentType.knowledge => '知识笔记',
     };
   }
 }

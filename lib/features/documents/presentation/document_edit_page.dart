@@ -743,9 +743,8 @@ class _DocumentPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final displayTitle = title.trim().isEmpty ? '未命名文档' : title.trim();
-    final content = contentMarkdown.trim().isEmpty
-        ? '_还没有正文。切回编辑模式，写下第一段沉淀。_'
-        : contentMarkdown;
+    final content =
+        contentMarkdown.trim().isEmpty ? '_暂无正文。_' : contentMarkdown;
     final bodyStyle = theme.textTheme.bodyLarge?.copyWith(height: 1.65);
     final mutedStyle = theme.textTheme.bodyMedium?.copyWith(
       color: theme.colorScheme.onSurfaceVariant,

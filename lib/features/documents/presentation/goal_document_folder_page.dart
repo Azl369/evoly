@@ -142,7 +142,7 @@ class _GoalDocumentFolderPageState extends State<GoalDocumentFolderPage> {
             const EmptyState(
               icon: Icons.article_outlined,
               title: '这个目标还没有文档',
-              message: '可以先写一篇过程记录，或者生成一个项目总结草稿再慢慢补充。',
+              message: '可新建过程记录或项目总结。',
             )
           else
             ..._documents.map((document) {

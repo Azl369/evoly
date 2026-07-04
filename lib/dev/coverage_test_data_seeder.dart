@@ -108,7 +108,7 @@ class CoverageTestDataSeeder {
       ),
       Goal(
         id: 'coverage-goal-docs',
-        title: '文档库与知识沉淀',
+        title: '文档库与知识笔记',
         description: '覆盖已完成目标、满进度、关联文档和统计完成率。',
         type: GoalType.longTerm,
         priority: Priority.high,

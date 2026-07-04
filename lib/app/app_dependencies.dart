@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 import 'package:evoly/app/data_refresh_controller.dart';
@@ -6,6 +8,8 @@ import 'package:evoly/core/database/app_database.dart';
 import 'package:evoly/features/coach/application/rule_based_coach_service.dart';
 import 'package:evoly/features/coach/data/coach_repository.dart';
 import 'package:evoly/features/coach/data/sqlite_coach_repository.dart';
+import 'package:evoly/features/desktop_window/application/compact_reminder_service.dart';
+import 'package:evoly/features/desktop_window/application/desktop_window_controller.dart';
 import 'package:evoly/features/documents/data/document_repository.dart';
 import 'package:evoly/features/documents/data/sqlite_document_repository.dart';
 import 'package:evoly/features/goals/data/goal_repository.dart';
@@ -155,11 +159,43 @@ class AppDependencies extends StatelessWidget {
             reminderRepository: context.read<ReminderRepository>(),
             taskRepository: context.read<TaskRepository>(),
             notificationService: context.read<NotificationService>(),
+            remindersPaused: (now) {
+              if (!Platform.isWindows) {
+                return false;
+              }
+
+              return context
+                  .read<SettingsController>()
+                  .settings
+                  .windowsRemindersPaused(now);
+            },
           ),
         ),
         Provider<TaskReminderService>(
           create: (context) =>
               TaskReminderService(context.read<ReminderRepository>()),
+        ),
+        Provider<CompactReminderService>(
+          create: (context) => CompactReminderService(
+            taskRepository: context.read<TaskRepository>(),
+            reminderRepository: context.read<ReminderRepository>(),
+          ),
+        ),
+        ChangeNotifierProxyProvider<SettingsController,
+            DesktopWindowController>(
+          create: (_) => DesktopWindowController()..initialize(),
+          update: (_, settingsController, controller) {
+            final desktopWindowController =
+                controller ?? (DesktopWindowController()..initialize());
+            desktopWindowController.updateSettings(
+              settingsController.settings,
+              saveCompactPosition:
+                  settingsController.updateWindowsCompactPosition,
+              pauseReminders: settingsController.pauseWindowsRemindersFor,
+              resumeReminders: settingsController.resumeWindowsReminders,
+            );
+            return desktopWindowController;
+          },
         ),
         Provider<BackgroundTaskService>(
           create: (context) => createBackgroundTaskService(

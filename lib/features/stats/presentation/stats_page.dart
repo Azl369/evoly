@@ -81,7 +81,7 @@ class _StatsPageState extends State<StatsPage>
       return const EmptyState(
         icon: Icons.bar_chart_outlined,
         title: '暂无统计数据',
-        message: '完成几个任务后，这里会慢慢亮起来。',
+        message: '完成任务后显示统计。',
       );
     }
 
@@ -446,7 +446,7 @@ class _CompletionChartCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           if (total == 0)
             Text(
-              '本周还没有完成项目，完成后这里会出现图表。',
+              '本周暂无完成项目。',
               style: theme.textTheme.bodyMedium,
             )
           else if (mode == _CompletionChartMode.pie)

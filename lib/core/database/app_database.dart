@@ -8,10 +8,16 @@ import 'package:evoly/features/goals/domain/goal.dart';
 import 'package:evoly/features/tasks/domain/task_item.dart';
 
 class AppDatabase {
-  AppDatabase._();
+  AppDatabase._({String? databasePathOverride})
+      : _databasePathOverride = databasePathOverride;
+
+  factory AppDatabase.testing(String databasePath) {
+    return AppDatabase._(databasePathOverride: databasePath);
+  }
 
   static final AppDatabase instance = AppDatabase._();
 
+  final String? _databasePathOverride;
   Database? _database;
 
   bool get isOpened => _database != null;
@@ -58,6 +64,11 @@ class AppDatabase {
   }
 
   Future<String> _databasePath() async {
+    final databasePathOverride = _databasePathOverride;
+    if (databasePathOverride != null) {
+      return databasePathOverride;
+    }
+
     if (Platform.isAndroid || Platform.isIOS) {
       final dbDir = await sqflite_mobile.getDatabasesPath();
       return p.join(dbDir, 'evoly.db');
@@ -288,7 +299,7 @@ class AppDatabase {
     await db.insert('goals', {
       'id': goalId,
       'title': '30 天完成 Flutter 基础',
-      'description': '把学习目标拆成每日任务，保持小步快跑。',
+      'description': '把学习目标拆成每日任务。',
       'type': GoalType.longTerm.name,
       'priority': Priority.high.name,
       'status': GoalStatus.inProgress.name,

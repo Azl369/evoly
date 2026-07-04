@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
@@ -6,6 +8,7 @@ import 'package:evoly/app/router.dart';
 import 'package:evoly/core/domain/priority.dart';
 import 'package:evoly/features/coach/application/rule_based_coach_service.dart';
 import 'package:evoly/features/coach/domain/coach_insight.dart';
+import 'package:evoly/features/desktop_window/application/desktop_window_controller.dart';
 import 'package:evoly/features/reminders/application/reminder_inbox.dart';
 import 'package:evoly/features/reminders/application/task_reminder_service.dart';
 import 'package:evoly/features/sync/presentation/sync_refresh_indicator.dart';
@@ -38,9 +41,13 @@ class TodayPage extends StatefulWidget {
 
 class _TodayPageState extends State<TodayPage>
     with DataRefreshListener<TodayPage> {
+  final _desktopTaskScrollController = ScrollController();
+  final _desktopOverviewScrollController = ScrollController();
   final List<TaskItem> _tasks = [];
+  DesktopWindowController? _desktopWindowController;
   var _loading = true;
   var _coachExpanded = true;
+  var _pendingTaskOpenScheduled = false;
   String? _errorMessage;
   CoachInsight? _coachInsight;
 
@@ -57,18 +64,48 @@ class _TodayPageState extends State<TodayPage>
   Future<void> reloadDataForRefresh() => _loadTasks();
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final DesktopWindowController controller;
+    try {
+      controller = context.read<DesktopWindowController>();
+    } on ProviderNotFoundException {
+      return;
+    }
+
+    if (_desktopWindowController == controller) {
+      return;
+    }
+
+    _desktopWindowController?.removeListener(_handleDesktopWindowChanged);
+    _desktopWindowController = controller;
+    controller.addListener(_handleDesktopWindowChanged);
+    _handleDesktopWindowChanged();
+  }
+
+  @override
+  void dispose() {
+    _desktopWindowController?.removeListener(_handleDesktopWindowChanged);
+    _desktopTaskScrollController.dispose();
+    _desktopOverviewScrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final completedCount = _tasks.where((task) => task.isCompleted).length;
     final progress = _tasks.isEmpty ? 0.0 : completedCount / _tasks.length;
+    final useDesktopLayout = MediaQuery.sizeOf(context).width >= 900;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('今日计划'),
         actions: [
-          IconButton(
-            onPressed: () => Navigator.pushNamed(context, AppRoutes.settings),
-            icon: const Icon(Icons.settings_outlined),
-          ),
+          if (!useDesktopLayout)
+            IconButton(
+              onPressed: () => Navigator.pushNamed(context, AppRoutes.settings),
+              icon: const Icon(Icons.settings_outlined),
+            ),
         ],
       ),
       body: _buildBody(progress),
@@ -94,6 +131,21 @@ class _TodayPageState extends State<TodayPage>
 
     final listEntries = _todayListEntries;
 
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= 900) {
+          return _buildDesktopBody(progress, listEntries, constraints.maxWidth);
+        }
+
+        return _buildMobileBody(progress, listEntries);
+      },
+    );
+  }
+
+  Widget _buildMobileBody(
+    double progress,
+    List<_TodayListEntry> listEntries,
+  ) {
     return SyncRefreshIndicator(
       child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -111,7 +163,82 @@ class _TodayPageState extends State<TodayPage>
               child: EmptyState(
                 icon: Icons.task_alt_outlined,
                 title: '今天暂时没有任务',
-                message: '去目标页创建一个目标，让今天有个轻轻的抓手。',
+                message: '去目标页创建目标或任务。',
+              ),
+            );
+          }
+
+          return _buildTodayListEntry(listEntries[index - 1]);
+        },
+      ),
+    );
+  }
+
+  Widget _buildDesktopBody(
+    double progress,
+    List<_TodayListEntry> listEntries,
+    double maxWidth,
+  ) {
+    final sideWidth = maxWidth >= 1180 ? 392.0 : 348.0;
+
+    return SyncRefreshIndicator(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _buildDesktopTaskPane(listEntries)),
+            const SizedBox(width: AppSpacing.lg),
+            SizedBox(
+              width: sideWidth,
+              child: Scrollbar(
+                controller: _desktopOverviewScrollController,
+                child: ListView(
+                  controller: _desktopOverviewScrollController,
+                  padding: EdgeInsets.zero,
+                  children: [_buildTodayOverview(progress)],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopTaskPane(List<_TodayListEntry> listEntries) {
+    return Scrollbar(
+      controller: _desktopTaskScrollController,
+      child: ListView.builder(
+        controller: _desktopTaskScrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        scrollCacheExtent: const ScrollCacheExtent.pixels(720),
+        padding: EdgeInsets.zero,
+        itemCount: _tasks.isEmpty ? 2 : listEntries.length + 1,
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return const Padding(
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.xs,
+                AppSpacing.md,
+                AppSpacing.sm,
+              ),
+              child: AppSectionHeader(
+                title: '今日任务',
+                padding: EdgeInsets.zero,
+              ),
+            );
+          }
+
+          if (_tasks.isEmpty) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              child: EmptyState(
+                icon: Icons.task_alt_outlined,
+                title: '今天暂时没有任务',
+                message: '去目标页创建目标或任务。',
+                compact: true,
               ),
             );
           }
@@ -128,13 +255,8 @@ class _TodayPageState extends State<TodayPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('今天最重要的事', style: Theme.of(context).textTheme.headlineSmall),
+          Text('今日进度', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: AppSpacing.sm),
-          Text(
-            '保持小步前进，别让目标躺平。',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: AppSpacing.lg),
           AnimatedProgressBar(value: progress),
           const SizedBox(height: AppSpacing.md),
           _CoachInsightCard(
@@ -270,6 +392,7 @@ class _TodayPageState extends State<TodayPage>
         _coachInsight = results[1] as CoachInsight;
         _loading = false;
       });
+      _schedulePendingTaskOpen();
     } catch (error) {
       if (!mounted) {
         return;
@@ -281,6 +404,51 @@ class _TodayPageState extends State<TodayPage>
         _loading = false;
       });
     }
+  }
+
+  void _handleDesktopWindowChanged() {
+    _schedulePendingTaskOpen();
+  }
+
+  void _schedulePendingTaskOpen() {
+    if (!mounted ||
+        _loading ||
+        _pendingTaskOpenScheduled ||
+        _desktopWindowController?.pendingTaskId == null) {
+      return;
+    }
+
+    _pendingTaskOpenScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _pendingTaskOpenScheduled = false;
+      if (!mounted) {
+        return;
+      }
+
+      unawaited(_openPendingDesktopTask());
+    });
+  }
+
+  Future<void> _openPendingDesktopTask() async {
+    final controller = _desktopWindowController;
+    if (controller == null || _loading) {
+      return;
+    }
+
+    final taskId = controller.consumePendingTaskId();
+    if (taskId == null) {
+      return;
+    }
+
+    final task = _tasks.where((task) => task.id == taskId).firstOrNull;
+    if (task == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('这项任务已经不在今天列表里了')),
+      );
+      return;
+    }
+
+    await _showEditTaskSheet(task);
   }
 
   Future<void> _showDueReminders() async {
@@ -652,7 +820,7 @@ class _CoachAdjustmentDraftDialog extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '今天任务偏多，Coach 建议先专注 Top 3，其余任务延期到明天。确认前不会修改任何数据。',
+                '今天任务偏多。确认后保留 Top 3，其余延期到明天。',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: AppSpacing.md),
@@ -689,27 +857,27 @@ class _CoachAdjustmentDraftDialog extends StatelessWidget {
   String _keepReasonFor(TaskItem task) {
     final dueDate = task.dueDateTime;
     if (task.priority == Priority.high) {
-      return '高优先级，优先推动核心目标';
+      return '高优先级';
     }
     if (dueDate != null && dueDate.isBefore(DateTime.now())) {
-      return '已经过了计划时间，适合今天先收掉';
+      return '已过计划时间';
     }
     if (dueDate != null) {
-      return '截止时间靠前，今天处理更稳';
+      return '截止时间靠前';
     }
 
-    return '在今日 Top 3 中，适合优先推进';
+    return '今日 Top 3';
   }
 
   String _postponeReasonFor(TaskItem task) {
     if (task.priority == Priority.low) {
-      return '低优先级，适合让位给关键任务';
+      return '低优先级';
     }
     if (task.estimatedMinutes >= 60) {
-      return '耗时较长，今天先避免过载';
+      return '预计耗时较长';
     }
 
-    return '不是今日 Top 3，先延期保持专注';
+    return '不在今日 Top 3';
   }
 }
 

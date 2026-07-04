@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:evoly/app/theme_preset.dart';
 import 'package:evoly/dev/coverage_test_data_seeder.dart';
+import 'package:evoly/features/desktop_window/application/desktop_window_controller.dart';
 import 'package:evoly/features/documents/data/document_repository.dart';
 import 'package:evoly/features/goals/data/goal_repository.dart';
 import 'package:evoly/features/reminders/data/reminder_repository.dart';
@@ -11,8 +14,10 @@ import 'package:evoly/features/settings/data/settings_repository.dart';
 import 'package:evoly/features/sync/presentation/sync_account_section.dart';
 import 'package:evoly/features/tasks/data/task_repository.dart';
 import 'package:evoly/shared/ui/bottom_sheets/responsive_bottom_sheet_body.dart';
-import 'package:evoly/shared/ui/motion/motion_tokens.dart';
+import 'package:evoly/shared/ui/components/app_components.dart';
+import 'package:evoly/shared/ui/tokens/app_radii.dart';
 import 'package:evoly/shared/ui/tokens/app_spacing.dart';
+import 'package:evoly/shared/ui/tokens/evoly_design_tokens.dart';
 import 'package:evoly/shared/widgets/evoly_navigation_bar.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -28,38 +33,55 @@ class SettingsPage extends StatelessWidget {
     final settings = context.watch<SettingsController>().settings;
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(title: const Text('设置')),
-      body: ListView(
-        children: [
-          const SwitchListTile(
-            value: true,
-            onChanged: null,
-            title: Text('每日计划提醒'),
-            subtitle: Text('每天早上提醒今天要推进的目标'),
-          ),
-          const ListTile(
-            leading: Icon(Icons.notifications_outlined),
-            title: Text('默认提醒时间'),
-            subtitle: Text('08:30'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.palette_outlined),
-            title: const Text('主题'),
-            subtitle: Text(
-              '${settings.themeMode.label} · ${settings.themePreset.label}',
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: EvolyDesignTokens.of(context).backgroundGradient,
+        ),
+        child: ListView(
+          children: [
+            const SwitchListTile(
+              value: true,
+              onChanged: null,
+              title: Text('每日计划提醒'),
+              subtitle: Text('每天早上提醒今天要推进的目标'),
             ),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => _showThemeSheet(context),
-          ),
-          const SyncAccountSection(),
-          if (kDebugMode)
+            const ListTile(
+              leading: Icon(Icons.notifications_outlined),
+              title: Text('默认提醒时间'),
+              subtitle: Text('08:30'),
+            ),
             ListTile(
-              leading: const Icon(Icons.science_outlined),
-              title: const Text('生成覆盖测试数据'),
-              subtitle: const Text('目标、任务、文档、提醒，各状态与长文本覆盖'),
-              onTap: () => _seedCoverageTestData(context),
+              leading: const Icon(Icons.palette_outlined),
+              title: const Text('主题'),
+              subtitle: Text(
+                '${settings.themeMode.label} · ${settings.themePreset.label}',
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => _showThemeSheet(context),
             ),
-        ],
+            if (Platform.isWindows)
+              ListTile(
+                leading: const Icon(Icons.desktop_windows_outlined),
+                title: const Text('Windows 桌面模式'),
+                subtitle: Text(
+                  '${settings.windowsCloseBehavior.label} · '
+                  '${settings.windowsTrayClickBehavior.label}',
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => _showWindowsDesktopSheet(context),
+              ),
+            const SyncAccountSection(),
+            if (kDebugMode)
+              ListTile(
+                leading: const Icon(Icons.science_outlined),
+                title: const Text('生成覆盖测试数据'),
+                subtitle: const Text('目标、任务、文档、提醒，各状态与长文本覆盖'),
+                onTap: () => _seedCoverageTestData(context),
+              ),
+          ],
+        ),
       ),
       bottomNavigationBar: showBottomNavigationBar
           ? const EvolyNavigationBar(selectedIndex: 4)
@@ -73,6 +95,15 @@ class SettingsPage extends StatelessWidget {
       isScrollControlled: true,
       showDragHandle: true,
       builder: (context) => const _ThemeSettingsSheet(),
+    );
+  }
+
+  Future<void> _showWindowsDesktopSheet(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => const _WindowsDesktopSettingsSheet(),
     );
   }
 
@@ -114,6 +145,153 @@ class SettingsPage extends StatelessWidget {
         SnackBar(content: Text('生成覆盖测试数据失败：$error')),
       );
     }
+  }
+}
+
+class _WindowsDesktopSettingsSheet extends StatelessWidget {
+  const _WindowsDesktopSettingsSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return ResponsiveBottomSheetBody(
+      minHeight: 520,
+      child: Consumer<SettingsController>(
+        builder: (context, controller, _) {
+          final settings = controller.settings;
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Windows 桌面模式',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                '关闭窗口时',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              SegmentedButton<WindowsCloseBehavior>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(
+                    value: WindowsCloseBehavior.hideToTray,
+                    icon: Icon(Icons.system_update_alt_outlined),
+                    label: Text('托盘'),
+                  ),
+                  ButtonSegment(
+                    value: WindowsCloseBehavior.showCompact,
+                    icon: Icon(Icons.space_dashboard_outlined),
+                    label: Text('迷你'),
+                  ),
+                  ButtonSegment(
+                    value: WindowsCloseBehavior.exitApp,
+                    icon: Icon(Icons.power_settings_new_outlined),
+                    label: Text('退出'),
+                  ),
+                ],
+                selected: {settings.windowsCloseBehavior},
+                onSelectionChanged: (selection) {
+                  controller.updateWindowsCloseBehavior(selection.first);
+                },
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                '托盘左键',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              SegmentedButton<WindowsTrayClickBehavior>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(
+                    value: WindowsTrayClickBehavior.showCompact,
+                    icon: Icon(Icons.space_dashboard_outlined),
+                    label: Text('迷你'),
+                  ),
+                  ButtonSegment(
+                    value: WindowsTrayClickBehavior.openFull,
+                    icon: Icon(Icons.open_in_full_rounded),
+                    label: Text('完整'),
+                  ),
+                ],
+                selected: {settings.windowsTrayClickBehavior},
+                onSelectionChanged: (selection) {
+                  controller.updateWindowsTrayClickBehavior(selection.first);
+                },
+              ),
+              const SizedBox(height: AppSpacing.md),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: settings.windowsCompactAlwaysOnTop,
+                onChanged: controller.updateWindowsCompactAlwaysOnTop,
+                title: const Text('迷你面板置顶'),
+                subtitle: const Text('关闭后仍可手动从托盘打开。'),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.notifications_paused_outlined),
+                title: const Text('提醒暂停'),
+                subtitle: Text(_reminderPauseLabel(settings)),
+                trailing: TextButton(
+                  onPressed: settings.windowsRemindersPaused(DateTime.now())
+                      ? controller.resumeWindowsReminders
+                      : () => controller.pauseWindowsRemindersFor(
+                            const Duration(hours: 1),
+                          ),
+                  child: Text(
+                    settings.windowsRemindersPaused(DateTime.now())
+                        ? '恢复'
+                        : '暂停 1 小时',
+                  ),
+                ),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.my_location_outlined),
+                title: const Text('重置迷你面板位置'),
+                subtitle: const Text('下次显示回到主屏右上角。'),
+                onTap: () => _resetCompactPosition(context),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _resetCompactPosition(BuildContext context) async {
+    final settingsController = context.read<SettingsController>();
+    final messenger = ScaffoldMessenger.of(context);
+    DesktopWindowController? desktopWindowController;
+    try {
+      desktopWindowController = context.read<DesktopWindowController>();
+    } on ProviderNotFoundException {
+      desktopWindowController = null;
+    }
+
+    await settingsController.updateWindowsCompactPosition(null);
+    await desktopWindowController?.resetCompactPosition();
+
+    if (!context.mounted) {
+      return;
+    }
+
+    messenger.showSnackBar(
+      const SnackBar(content: Text('迷你面板位置已重置')),
+    );
+  }
+
+  String _reminderPauseLabel(AppSettings settings) {
+    final pauseUntil = settings.windowsReminderPauseUntil;
+    if (pauseUntil == null || !pauseUntil.isAfter(DateTime.now())) {
+      return '当前未暂停';
+    }
+
+    return '暂停至 ${pauseUntil.hour.toString().padLeft(2, '0')}:'
+        '${pauseUntil.minute.toString().padLeft(2, '0')}';
   }
 }
 
@@ -201,97 +379,137 @@ class _ThemePresetOption extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final foregroundColor =
-        selected ? colorScheme.onPrimaryContainer : colorScheme.onSurface;
-    final optionColor = selected
-        ? colorScheme.primaryContainer.withValues(alpha: 0.62)
-        : colorScheme.surfaceContainerHighest.withValues(alpha: 0.42);
-    final borderColor = selected
-        ? colorScheme.primary.withValues(alpha: 0.28)
-        : colorScheme.outlineVariant.withValues(alpha: 0.58);
+    final tokens = EvolyDesignTokens.of(context);
+    final foregroundColor = selected
+        ? tokens.hudAccentStrong
+        : colorScheme.onSurface.withValues(alpha: 0.92);
 
     return Semantics(
       button: true,
       selected: selected,
       label: preset.label,
-      child: AnimatedContainer(
-        duration: MotionTokens.instant,
-        curve: MotionTokens.standard,
-        decoration: BoxDecoration(
-          color: optionColor,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: borderColor),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: selected ? null : onTap,
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              child: Row(
-                children: [
-                  _ThemeSwatches(preset: preset),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: Text(
-                      preset.label,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: foregroundColor,
-                        fontWeight: selected ? FontWeight.w700 : null,
-                      ),
-                    ),
-                  ),
-                  SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: selected
-                        ? Icon(
-                            Icons.check_circle_rounded,
-                            color: colorScheme.primary,
-                          )
-                        : const SizedBox.shrink(),
-                  ),
-                ],
+      child: AppGlassSurface(
+        onTap: selected ? null : onTap,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        radius: 14,
+        selected: selected,
+        elevated: selected,
+        backgroundColor:
+            selected ? tokens.glassSurfaceRaised : tokens.glassSurfaceSubtle,
+        borderColor: selected ? tokens.glassBorderStrong : tokens.glassBorder,
+        child: Row(
+          children: [
+            _ThemeHudPreview(preset: preset),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Text(
+                preset.label,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: foregroundColor,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                ),
               ),
             ),
-          ),
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: selected
+                  ? Icon(
+                      Icons.check_circle_rounded,
+                      color: tokens.hudAccentStrong,
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _ThemeSwatches extends StatelessWidget {
-  const _ThemeSwatches({required this.preset});
+class _ThemeHudPreview extends StatelessWidget {
+  const _ThemeHudPreview({required this.preset});
 
   final EvolyThemePreset preset;
 
   @override
   Widget build(BuildContext context) {
-    final outlineColor = Theme.of(context).colorScheme.outlineVariant;
+    final tokens = EvolyDesignTokens.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final base = isDark ? const Color(0xFF101827) : const Color(0xFFF7FCFF);
 
     return SizedBox(
-      width: 54,
-      height: 32,
-      child: Stack(
-        children: [
-          for (final entry in preset.previewSwatches.indexed)
+      width: 74,
+      height: 42,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color.alphaBlend(
+                preset.seedColor.withValues(alpha: 0.26),
+                base,
+              ),
+              Color.alphaBlend(
+                preset.secondarySeedColor.withValues(alpha: 0.22),
+                base,
+              ),
+              Color.alphaBlend(
+                preset.tertiarySeedColor.withValues(alpha: 0.20),
+                base,
+              ),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(AppRadii.md),
+          border: Border.all(color: tokens.glassBorder),
+          boxShadow: [
+            BoxShadow(
+              color: tokens.glassShadow.withValues(alpha: isDark ? 0.18 : 0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
             Positioned(
-              left: entry.$1 * 14,
-              child: Container(
-                width: 30,
-                height: 30,
+              left: 8,
+              top: 8,
+              right: 8,
+              child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: entry.$2,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: outlineColor.withValues(alpha: 0.72),
-                  ),
+                  color: Colors.white.withValues(alpha: isDark ? 0.12 : 0.34),
+                  borderRadius: BorderRadius.circular(AppRadii.sm),
                 ),
+                child: const SizedBox(height: 10),
               ),
             ),
-        ],
+            Positioned(
+              left: 8,
+              right: 26,
+              bottom: 9,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: preset.secondarySeedColor.withValues(alpha: 0.72),
+                  borderRadius: BorderRadius.circular(AppRadii.pill),
+                ),
+                child: const SizedBox(height: 5),
+              ),
+            ),
+            Positioned(
+              right: 8,
+              bottom: 7,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: preset.tertiarySeedColor,
+                  shape: BoxShape.circle,
+                ),
+                child: const SizedBox.square(dimension: 12),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -85,7 +85,7 @@ class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        backgroundColor: tokens.pageBackground,
+        backgroundColor: tokens.glassSurfaceSubtle,
         foregroundColor: colorScheme.onSurface,
         surfaceTintColor: Colors.transparent,
         titleTextStyle: _textStyle(
@@ -101,16 +101,16 @@ class AppTheme {
           horizontal: AppSpacing.md,
           vertical: AppSpacing.xs,
         ),
-        color: tokens.surfaceRaised,
+        color: tokens.glassSurfaceRaised,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.lg),
-          side: BorderSide(color: tokens.outlineSubtle),
+          side: BorderSide(color: tokens.glassBorder),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
+        fillColor: tokens.glassSurfaceSubtle,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
           vertical: AppSpacing.compact,
@@ -121,11 +121,11 @@ class AppTheme {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.md),
-          borderSide: BorderSide(color: tokens.outlineSubtle),
+          borderSide: BorderSide(color: tokens.glassBorder),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.md),
-          borderSide: BorderSide(color: colorScheme.primary, width: 1.4),
+          borderSide: BorderSide(color: tokens.glassBorderStrong, width: 1.4),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.md),
@@ -158,7 +158,7 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.md),
           ),
-          side: BorderSide(color: tokens.outlineSubtle),
+          side: BorderSide(color: tokens.glassBorder),
           textStyle: _textStyle(
             color: colorScheme.primary,
             fontSize: 14,
@@ -193,7 +193,7 @@ class AppTheme {
           side: WidgetStateProperty.resolveWith((states) {
             final selected = states.contains(WidgetState.selected);
             return BorderSide(
-              color: selected ? colorScheme.primary : tokens.outlineSubtle,
+              color: selected ? tokens.glassBorderStrong : tokens.glassBorder,
             );
           }),
           shape: WidgetStateProperty.all(
@@ -204,7 +204,7 @@ class AppTheme {
         ),
       ),
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: colorScheme.surface,
+        backgroundColor: tokens.glassSurfaceRaised,
         surfaceTintColor: Colors.transparent,
         showDragHandle: true,
         shape: const RoundedRectangleBorder(
@@ -214,7 +214,7 @@ class AppTheme {
         ),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: colorScheme.surface,
+        backgroundColor: tokens.glassSurfaceRaised,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.lg),
@@ -235,9 +235,9 @@ class AppTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         elevation: 0,
-        backgroundColor: colorScheme.surface.withValues(alpha: 0.98),
+        backgroundColor: tokens.glassSurface,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: colorScheme.primaryContainer.withValues(alpha: 0.72),
+        indicatorColor: colorScheme.primaryContainer.withValues(alpha: 0.52),
         height: 68,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           return _textStyle(

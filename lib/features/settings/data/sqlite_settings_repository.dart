@@ -14,6 +14,12 @@ class SqliteSettingsRepository implements SettingsRepository {
   static const _defaultReminderMinute = 'default_reminder_minute';
   static const _themeMode = 'theme_mode';
   static const _themePreset = 'theme_preset';
+  static const _windowsCloseBehavior = 'windows_close_behavior';
+  static const _windowsTrayClickBehavior = 'windows_tray_click_behavior';
+  static const _windowsCompactAlwaysOnTop = 'windows_compact_always_on_top';
+  static const _windowsCompactPositionX = 'windows_compact_position_x';
+  static const _windowsCompactPositionY = 'windows_compact_position_y';
+  static const _windowsReminderPauseUntil = 'windows_reminder_pause_until';
 
   @override
   Future<AppSettings> load() async {
@@ -42,6 +48,29 @@ class SqliteSettingsRepository implements SettingsRepository {
       ),
       themeMode: themeModeFromStorageValue(values[_themeMode]),
       themePreset: evolyThemePresetFromId(values[_themePreset]),
+      windowsCloseBehavior: windowsCloseBehaviorFromStorageValue(
+        values[_windowsCloseBehavior],
+      ),
+      windowsTrayClickBehavior: windowsTrayClickBehaviorFromStorageValue(
+        values[_windowsTrayClickBehavior],
+      ),
+      windowsCompactAlwaysOnTop: _readBool(
+        values,
+        _windowsCompactAlwaysOnTop,
+        defaults.windowsCompactAlwaysOnTop,
+      ),
+      windowsCompactPositionX: _readDouble(
+        values,
+        _windowsCompactPositionX,
+      ),
+      windowsCompactPositionY: _readDouble(
+        values,
+        _windowsCompactPositionY,
+      ),
+      windowsReminderPauseUntil: _readDateTime(
+        values,
+        _windowsReminderPauseUntil,
+      ),
     );
   }
 
@@ -49,20 +78,38 @@ class SqliteSettingsRepository implements SettingsRepository {
   Future<void> save(AppSettings settings) async {
     final db = await database.database;
     final batch = db.batch();
-    final values = <String, String>{
+    final values = <String, String?>{
       _dailyReportEnabled: settings.dailyReportEnabled ? '1' : '0',
       _defaultReminderHour: settings.defaultReminderHour.toString(),
       _defaultReminderMinute: settings.defaultReminderMinute.toString(),
       _themeMode: settings.themeMode.storageValue,
       _themePreset: settings.themePreset.id,
+      _windowsCloseBehavior: settings.windowsCloseBehavior.storageValue,
+      _windowsTrayClickBehavior: settings.windowsTrayClickBehavior.storageValue,
+      _windowsCompactAlwaysOnTop:
+          settings.windowsCompactAlwaysOnTop ? '1' : '0',
+      _windowsCompactPositionX: settings.windowsCompactPositionX?.toString(),
+      _windowsCompactPositionY: settings.windowsCompactPositionY?.toString(),
+      _windowsReminderPauseUntil:
+          settings.windowsReminderPauseUntil?.millisecondsSinceEpoch.toString(),
     };
 
     for (final entry in values.entries) {
+      final value = entry.value;
+      if (value == null) {
+        batch.delete(
+          _table,
+          where: 'key = ?',
+          whereArgs: [entry.key],
+        );
+        continue;
+      }
+
       batch.insert(
         _table,
         {
           'key': entry.key,
-          'value': entry.value,
+          'value': value,
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
@@ -90,5 +137,24 @@ class SqliteSettingsRepository implements SettingsRepository {
     int defaultValue,
   ) {
     return int.tryParse(values[key] ?? '') ?? defaultValue;
+  }
+
+  double? _readDouble(
+    Map<String, String> values,
+    String key,
+  ) {
+    return double.tryParse(values[key] ?? '');
+  }
+
+  DateTime? _readDateTime(
+    Map<String, String> values,
+    String key,
+  ) {
+    final milliseconds = int.tryParse(values[key] ?? '');
+    if (milliseconds == null) {
+      return null;
+    }
+
+    return DateTime.fromMillisecondsSinceEpoch(milliseconds);
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:evoly/shared/ui/tokens/app_radii.dart';
 import 'package:evoly/shared/ui/tokens/app_spacing.dart';
@@ -26,9 +28,12 @@ class AppPageScaffold extends StatelessWidget {
     final tokens = EvolyDesignTokens.of(context);
 
     return Scaffold(
-      backgroundColor: tokens.pageBackground,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(title: Text(title), actions: actions),
-      body: safeAreaBody ? SafeArea(child: body) : body,
+      body: DecoratedBox(
+        decoration: BoxDecoration(gradient: tokens.backgroundGradient),
+        child: safeAreaBody ? SafeArea(child: body) : body,
+      ),
       bottomNavigationBar: bottomNavigationBar,
       floatingActionButton: floatingActionButton,
     );
@@ -89,6 +94,127 @@ class AppSectionHeader extends StatelessWidget {
   }
 }
 
+class AppGlassSurface extends StatefulWidget {
+  const AppGlassSurface({
+    required this.child,
+    super.key,
+    this.onTap,
+    this.padding = EdgeInsets.zero,
+    this.margin = EdgeInsets.zero,
+    this.backgroundColor,
+    this.borderColor,
+    this.radius = AppRadii.lg,
+    this.elevated = false,
+    this.selected = false,
+    this.blur = false,
+    this.clipBehavior = Clip.antiAlias,
+  });
+
+  final Widget child;
+  final VoidCallback? onTap;
+  final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry margin;
+  final Color? backgroundColor;
+  final Color? borderColor;
+  final double radius;
+  final bool elevated;
+  final bool selected;
+  final bool blur;
+  final Clip clipBehavior;
+
+  @override
+  State<AppGlassSurface> createState() => _AppGlassSurfaceState();
+}
+
+class _AppGlassSurfaceState extends State<AppGlassSurface> {
+  var _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = EvolyDesignTokens.of(context);
+    final baseColor = widget.backgroundColor ?? tokens.glassSurfaceRaised;
+    final color = _surfaceColor(tokens, baseColor);
+    final border = widget.borderColor ??
+        (widget.selected ? tokens.glassBorderStrong : tokens.glassBorder);
+    final borderRadius = BorderRadius.circular(widget.radius);
+    final blurSigma = widget.blur ? tokens.glassBlurSigma : 0.0;
+    final decoratedChild = DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.alphaBlend(
+              tokens.glassHighlight.withValues(alpha: 0.08),
+              color,
+            ),
+            color,
+          ],
+        ),
+        borderRadius: borderRadius,
+        border: Border.all(color: border),
+        boxShadow: _shadow(tokens),
+      ),
+      child: ClipRRect(
+        borderRadius: borderRadius,
+        clipBehavior: widget.clipBehavior,
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+          child: Material(
+            color: Colors.transparent,
+            clipBehavior: widget.clipBehavior,
+            borderRadius: borderRadius,
+            child: InkWell(
+              onTap: widget.onTap,
+              borderRadius: borderRadius,
+              onHover: (hovered) => setState(() => _hovered = hovered),
+              child: Padding(
+                padding: widget.padding,
+                child: widget.child,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    return Padding(
+      padding: widget.margin,
+      child: decoratedChild,
+    );
+  }
+
+  Color _surfaceColor(EvolyDesignTokens tokens, Color baseColor) {
+    if (widget.selected) {
+      return Color.alphaBlend(
+        tokens.hudAccent.withValues(alpha: 0.12),
+        baseColor,
+      );
+    }
+    if (_hovered && widget.onTap != null) {
+      return Color.alphaBlend(
+        tokens.hudAccent.withValues(alpha: 0.06),
+        baseColor,
+      );
+    }
+    return baseColor;
+  }
+
+  List<BoxShadow>? _shadow(EvolyDesignTokens tokens) {
+    if (!widget.elevated && !_hovered && !widget.selected) {
+      return null;
+    }
+
+    return [
+      BoxShadow(
+        color: tokens.glassShadow,
+        blurRadius: widget.selected || _hovered ? 24 : 18,
+        offset: const Offset(0, 10),
+      ),
+    ];
+  }
+}
+
 class AppSurfaceCard extends StatelessWidget {
   const AppSurfaceCard({
     required this.child,
@@ -119,41 +245,16 @@ class AppSurfaceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = EvolyDesignTokens.of(context);
-    final color = backgroundColor ?? tokens.surfaceRaised;
-    final border = borderColor ?? tokens.outlineSubtle;
-    final borderRadius = BorderRadius.circular(radius);
-
-    return Padding(
-      padding: margin,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: borderRadius,
-          border: Border.all(color: border),
-          boxShadow: elevated
-              ? [
-                  BoxShadow(
-                    color: tokens.shadowSoft,
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ]
-              : null,
-        ),
-        child: Material(
-          color: Colors.transparent,
-          clipBehavior: clipBehavior,
-          borderRadius: borderRadius,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: borderRadius,
-            child: Padding(
-              padding: padding,
-              child: child,
-            ),
-          ),
-        ),
-      ),
+    return AppGlassSurface(
+      onTap: onTap,
+      padding: padding,
+      margin: margin,
+      backgroundColor: backgroundColor ?? tokens.glassSurfaceRaised,
+      borderColor: borderColor,
+      radius: radius,
+      elevated: elevated,
+      clipBehavior: clipBehavior,
+      child: child,
     );
   }
 }
@@ -189,8 +290,9 @@ class AppListCard extends StatelessWidget {
       onTap: onTap,
       elevated: selected,
       backgroundColor: selected
-          ? colorScheme.primaryContainer.withValues(alpha: 0.55)
-          : tokens.surfaceRaised,
+          ? colorScheme.primaryContainer.withValues(alpha: 0.36)
+          : tokens.glassSurfaceRaised,
+      borderColor: selected ? tokens.glassBorderStrong : null,
       padding: EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
         vertical: compact ? AppSpacing.sm : AppSpacing.compact,
@@ -249,10 +351,10 @@ class AppMetaPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final tokens = EvolyDesignTokens.of(context);
     final accent = color ?? colorScheme.onSurfaceVariant;
-    final background = selected
-        ? accent.withValues(alpha: 0.14)
-        : colorScheme.surfaceContainerHighest.withValues(alpha: 0.62);
+    final background =
+        selected ? accent.withValues(alpha: 0.14) : tokens.glassSurfaceSubtle;
 
     return DecoratedBox(
       decoration: BoxDecoration(

@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
+import 'package:evoly/app/data_refresh_controller.dart';
 import 'package:evoly/core/domain/priority.dart';
 import 'package:evoly/features/coach/application/rule_based_coach_service.dart';
 import 'package:evoly/features/coach/data/coach_repository.dart';
+import 'package:evoly/features/desktop_window/application/desktop_window_controller.dart';
+import 'package:evoly/features/desktop_window/application/desktop_window_host.dart';
 import 'package:evoly/features/documents/data/document_repository.dart';
 import 'package:evoly/features/documents/domain/document_folder_summary.dart';
 import 'package:evoly/features/documents/domain/evoly_document.dart';
@@ -124,13 +127,75 @@ void main() {
     expect(postponedTask.status, TaskStatus.postponed);
     expect(find.textContaining('已延期'), findsWidgets);
   });
+
+  testWidgets('opens pending desktop task once', (tester) async {
+    final now = DateTime.now();
+    final task = TaskItem(
+      id: 'task-open-from-compact',
+      goalId: 'goal-1',
+      title: '从迷你面板打开的任务',
+      priority: Priority.high,
+      status: TaskStatus.pending,
+      estimatedMinutes: 30,
+      dueDateTime: DateTime(now.year, now.month, now.day, 18),
+      createdAt: now,
+      updatedAt: now,
+    );
+    final desktopWindowController = DesktopWindowController(
+      host: _FakeDesktopWindowHost(),
+    );
+    await desktopWindowController.initialize();
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: _providersFor(
+          taskRepository: _FakeTaskRepository([task]),
+          coachContext: CoachTodayContext(
+            todayTasks: [
+              CoachTaskContext(
+                id: task.id,
+                goalId: task.goalId,
+                title: task.title,
+                priority: task.priority,
+                status: task.status,
+                estimatedMinutes: task.estimatedMinutes,
+                dueDateTime: task.dueDateTime,
+                goalTitle: 'V0.2',
+              ),
+            ],
+            delayedGoalStats: const [],
+          ),
+          desktopWindowController: desktopWindowController,
+        ),
+        child: const MaterialApp(home: TodayPage()),
+      ),
+    );
+    await tester.pump(const Duration(seconds: 1));
+
+    await desktopWindowController.enterFullMode(taskId: task.id);
+    await tester.pumpAndSettle();
+
+    expect(find.text('编辑任务'), findsOneWidget);
+    expect(desktopWindowController.pendingTaskId, isNull);
+
+    await tester.pumpAndSettle();
+    expect(find.text('编辑任务'), findsOneWidget);
+  });
 }
 
 List<SingleChildWidget> _providersFor({
   required _FakeTaskRepository taskRepository,
   required CoachTodayContext coachContext,
+  DesktopWindowController? desktopWindowController,
 }) {
   return [
+    ChangeNotifierProvider<DataRefreshController>(
+      create: (_) => DataRefreshController(),
+    ),
+    if (desktopWindowController != null)
+      ChangeNotifierProvider<DesktopWindowController>.value(
+        value: desktopWindowController,
+      ),
     Provider<TaskRepository>.value(value: taskRepository),
     Provider<DocumentRepository>.value(value: _FakeDocumentRepository()),
     Provider<ReminderRepository>.value(value: _FakeReminderRepository()),
@@ -303,4 +368,117 @@ class _FakeNotificationService implements NotificationService {
     required String title,
     required String body,
   }) async {}
+}
+
+class _FakeDesktopWindowHost implements DesktopWindowHost {
+  @override
+  bool isWindows = false;
+
+  @override
+  Future<void> initialize({
+    required VoidCallback onWindowClose,
+    required VoidCallback onTrayIconMouseDown,
+    required VoidCallback onTrayIconRightMouseDown,
+    required ValueChanged<DesktopTrayMenuAction> onTrayMenuAction,
+  }) async {}
+
+  @override
+  Future<void> dispose() async {}
+
+  @override
+  Future<void> setPreventClose(bool value) async {}
+
+  @override
+  Future<void> setTitleBarStyle(
+    DesktopWindowTitleBarStyle style, {
+    required bool windowButtonVisibility,
+  }) async {}
+
+  @override
+  Future<void> setAsFrameless() async {}
+
+  @override
+  Future<void> setBackgroundColor(Color color) async {}
+
+  @override
+  Future<void> setWindowEffect(
+    DesktopWindowEffect effect, {
+    Color color = const Color(0x00000000),
+    bool dark = false,
+  }) async {}
+
+  @override
+  Future<void> setAlwaysOnTop(bool value) async {}
+
+  @override
+  Future<void> setResizable(bool value) async {}
+
+  @override
+  Future<void> setMinimizable(bool value) async {}
+
+  @override
+  Future<void> setMaximizable(bool value) async {}
+
+  @override
+  Future<void> setSkipTaskbar(bool value) async {}
+
+  @override
+  Future<void> setMinimumSize(Size size) async {}
+
+  @override
+  Future<void> setMaximumSize(Size size) async {}
+
+  @override
+  Future<void> setSize(Size size) async {}
+
+  @override
+  Future<void> setBounds(Rect? bounds, {Offset? position, Size? size}) async {}
+
+  @override
+  Future<Rect> getBounds() async => Rect.zero;
+
+  @override
+  Future<void> center() async {}
+
+  @override
+  Future<void> show({bool inactive = false}) async {}
+
+  @override
+  Future<void> hide() async {}
+
+  @override
+  Future<void> destroy() async {}
+
+  @override
+  Future<void> focus() async {}
+
+  @override
+  Future<void> unmaximize() async {}
+
+  @override
+  Future<void> startDragging() async {}
+
+  @override
+  Future<DesktopDisplayInfo> getPrimaryDisplay() async {
+    return const DesktopDisplayInfo(
+      visiblePosition: Offset.zero,
+      visibleSize: Size(1920, 1080),
+    );
+  }
+
+  @override
+  Future<void> initializeTray({
+    required String iconPath,
+    required String tooltip,
+    required bool remindersPaused,
+  }) async {}
+
+  @override
+  Future<void> updateTrayMenu({required bool remindersPaused}) async {}
+
+  @override
+  Future<void> destroyTray() async {}
+
+  @override
+  Future<void> popUpTrayContextMenu() async {}
 }
