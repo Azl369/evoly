@@ -32,12 +32,25 @@ void main() {
         DesktopWindowController.compactWindowBackground,
       );
       expect(host.framelessApplied, isTrue);
+      expect(host.hasShadow, isFalse);
+      expect(host.alwaysOnTop, isTrue);
+      expect(host.opacityValues.first, 1);
+      expect(host.opacityValues.any((value) => value == 0), isTrue);
+      expect(host.opacity, 1);
+
+      final compactBoundsEvent = host.events.firstWhere(
+        (event) => event.name == 'compactBounds',
+      );
+      expect(compactBoundsEvent.opacity, 0);
+
+      host.opacityValues.clear();
 
       await controller.toggleCompactExpanded();
 
       expect(controller.mode, DesktopWindowMode.compact);
       expect(controller.compactExpanded, isTrue);
       expect(host.bounds.size, DesktopWindowController.compactExpandedSize);
+      expect(host.opacityValues, isEmpty);
     });
 
     test('collapses content before shrinking the native compact window',
@@ -78,7 +91,13 @@ void main() {
         host.windowEffectColor,
         DesktopWindowController.fullWindowEffectTint,
       );
-      expect(host.alwaysOnTop, isTrue);
+      expect(host.alwaysOnTop, isFalse);
+      expect(host.hasShadow, isTrue);
+      expect(host.opacity, 1);
+      final fullBoundsEvent = host.events.lastWhere(
+        (event) => event.name == 'fullBounds',
+      );
+      expect(fullBoundsEvent.opacity, 0);
       expect(host.titleBarStyle, DesktopWindowTitleBarStyle.hidden);
       expect(controller.pendingTaskId, 'task-1');
       expect(controller.consumePendingTaskId(), 'task-1');
@@ -104,6 +123,18 @@ void main() {
 
       expect(controller.mode, DesktopWindowMode.full);
       expect(controller.compactExpanded, isFalse);
+      expect(host.opacity, 1);
+    });
+
+    test('skips opacity timeline on non-Windows hosts', () async {
+      final host = _FakeDesktopWindowHost()..isWindows = false;
+      final controller = DesktopWindowController(host: host);
+      await controller.initialize();
+
+      await controller.enterCompactMode();
+
+      expect(controller.mode, DesktopWindowMode.compact);
+      expect(host.opacityValues, isEmpty);
     });
 
     test('honors close and tray click behavior settings', () async {
@@ -119,11 +150,11 @@ void main() {
       );
 
       host.emitWindowClose();
-      await Future<void>.delayed(Duration.zero);
+      await _waitForModeSwitch();
       expect(controller.mode, DesktopWindowMode.compact);
 
       host.emitTrayIconMouseDown();
-      await Future<void>.delayed(Duration.zero);
+      await _waitForModeSwitch();
       expect(controller.mode, DesktopWindowMode.full);
     });
 
@@ -226,6 +257,14 @@ void main() {
   });
 }
 
+Future<void> _waitForModeSwitch() {
+  return Future<void>.delayed(
+    DesktopWindowController.modeSwitchFadeOutDuration +
+        DesktopWindowController.modeSwitchFadeInDuration +
+        const Duration(milliseconds: 80),
+  );
+}
+
 class _FakeDesktopWindowHost implements DesktopWindowHost {
   VoidCallback _onWindowClose = () {};
   VoidCallback _onTrayIconMouseDown = () {};
@@ -246,6 +285,10 @@ class _FakeDesktopWindowHost implements DesktopWindowHost {
   Color? windowEffectColor;
   bool? windowEffectDark;
   bool? alwaysOnTop;
+  bool? hasShadow;
+  double opacity = 1;
+  final List<double> opacityValues = [];
+  final List<_HostEvent> events = [];
 
   void emitWindowClose() => _onWindowClose();
 
@@ -305,6 +348,18 @@ class _FakeDesktopWindowHost implements DesktopWindowHost {
   }
 
   @override
+  Future<void> setHasShadow(bool value) async {
+    hasShadow = value;
+  }
+
+  @override
+  Future<void> setOpacity(double opacity) async {
+    this.opacity = opacity;
+    opacityValues.add(opacity);
+    events.add(_HostEvent('opacity', opacity));
+  }
+
+  @override
   Future<void> setAlwaysOnTop(bool value) async {
     alwaysOnTop = value;
   }
@@ -329,6 +384,7 @@ class _FakeDesktopWindowHost implements DesktopWindowHost {
 
   @override
   Future<void> setSize(Size size) async {
+    events.add(_HostEvent('setSize', opacity));
     bounds = Rect.fromLTWH(bounds.left, bounds.top, size.width, size.height);
   }
 
@@ -344,12 +400,23 @@ class _FakeDesktopWindowHost implements DesktopWindowHost {
     }
 
     if (bounds != null) {
+      events.add(_HostEvent('fullBounds', opacity));
       this.bounds = bounds;
       return;
     }
 
     final nextPosition = position ?? this.bounds.topLeft;
     final nextSize = size ?? this.bounds.size;
+    events.add(
+      _HostEvent(
+        nextSize == DesktopWindowController.compactSize
+            ? 'compactBounds'
+            : nextSize == DesktopWindowController.compactExpandedSize
+                ? 'compactExpandedBounds'
+                : 'bounds',
+        opacity,
+      ),
+    );
     this.bounds = Rect.fromLTWH(
       nextPosition.dx,
       nextPosition.dy,
@@ -414,4 +481,11 @@ class _FakeDesktopWindowHost implements DesktopWindowHost {
 
   @override
   Future<void> popUpTrayContextMenu() async {}
+}
+
+class _HostEvent {
+  const _HostEvent(this.name, this.opacity);
+
+  final String name;
+  final double opacity;
 }

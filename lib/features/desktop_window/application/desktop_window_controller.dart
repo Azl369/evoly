@@ -21,6 +21,10 @@ class DesktopWindowController extends ChangeNotifier {
   static const Color fullWindowEffectTint = Color(0xD8F4FBFF);
   static const double compactScreenInset = 16;
   static const double compactSnapDistance = 24;
+  static const Duration modeSwitchFadeOutDuration = Duration(milliseconds: 80);
+  static const Duration modeSwitchFadeInDuration = Duration(milliseconds: 120);
+  static const Duration _modeSwitchFrameDelay = Duration(milliseconds: 16);
+  static const Duration _opacityFrameInterval = Duration(milliseconds: 16);
 
   final DesktopWindowHost _host;
   var _mode = DesktopWindowMode.full;
@@ -123,40 +127,112 @@ class DesktopWindowController extends ChangeNotifier {
 
   Future<void> enterCompactMode({bool expanded = false}) async {
     final revision = ++_operationRevision;
+    final animateModeSwitch =
+        _host.isWindows && _mode != DesktopWindowMode.compact;
 
-    if (_host.isWindows) {
-      await _rememberFullBounds();
+    try {
+      if (_host.isWindows) {
+        await _rememberFullBounds();
+      }
+
+      final size = expanded ? compactExpandedSize : compactSize;
+
+      if (animateModeSwitch) {
+        await _runWindowOpacityTimeline(
+          1,
+          0,
+          modeSwitchFadeOutDuration,
+          Curves.easeInCubic,
+          revision,
+        );
+      }
+
+      if (_isExiting || revision != _operationRevision) {
+        return;
+      }
+
+      if (_host.isWindows) {
+        await _applyCompactWindow(size);
+      }
+
+      if (_isExiting || revision != _operationRevision) {
+        return;
+      }
+
+      _pendingTaskId = null;
+      _compactExpanded = expanded;
+      _setMode(DesktopWindowMode.compact);
+
+      if (animateModeSwitch) {
+        await _waitForModeFrame();
+        if (_isExiting || revision != _operationRevision) {
+          return;
+        }
+        await _runWindowOpacityTimeline(
+          0,
+          1,
+          modeSwitchFadeInDuration,
+          Curves.easeOutCubic,
+          revision,
+        );
+      }
+    } finally {
+      if (_host.isWindows && !_isExiting && revision == _operationRevision) {
+        await _setWindowOpacity(1);
+      }
     }
-
-    final size = expanded ? compactExpandedSize : compactSize;
-
-    if (_host.isWindows) {
-      await _applyCompactWindow(size);
-    }
-
-    if (_isExiting || revision != _operationRevision) {
-      return;
-    }
-
-    _pendingTaskId = null;
-    _compactExpanded = expanded;
-    _setMode(DesktopWindowMode.compact);
   }
 
   Future<void> enterFullMode({String? taskId}) async {
     final revision = ++_operationRevision;
+    final animateModeSwitch =
+        _host.isWindows && _mode != DesktopWindowMode.full;
 
-    if (_host.isWindows) {
-      await _applyFullWindow();
+    try {
+      if (animateModeSwitch) {
+        await _runWindowOpacityTimeline(
+          1,
+          0,
+          modeSwitchFadeOutDuration,
+          Curves.easeInCubic,
+          revision,
+        );
+      }
+
+      if (_isExiting || revision != _operationRevision) {
+        return;
+      }
+
+      if (_host.isWindows) {
+        await _applyFullWindow();
+      }
+
+      if (_isExiting || revision != _operationRevision) {
+        return;
+      }
+
+      _pendingTaskId = taskId;
+      _compactExpanded = false;
+      _setMode(DesktopWindowMode.full);
+
+      if (animateModeSwitch) {
+        await _waitForModeFrame();
+        if (_isExiting || revision != _operationRevision) {
+          return;
+        }
+        await _runWindowOpacityTimeline(
+          0,
+          1,
+          modeSwitchFadeInDuration,
+          Curves.easeOutCubic,
+          revision,
+        );
+      }
+    } finally {
+      if (_host.isWindows && !_isExiting && revision == _operationRevision) {
+        await _setWindowOpacity(1);
+      }
     }
-
-    if (_isExiting || revision != _operationRevision) {
-      return;
-    }
-
-    _pendingTaskId = taskId;
-    _compactExpanded = false;
-    _setMode(DesktopWindowMode.full);
   }
 
   Future<void> toggleCompactExpanded() async {
@@ -320,7 +396,8 @@ class DesktopWindowController extends ChangeNotifier {
       DesktopWindowTitleBarStyle.hidden,
       windowButtonVisibility: false,
     );
-    await _host.setAlwaysOnTop(true);
+    await _host.setHasShadow(true);
+    await _host.setAlwaysOnTop(false);
     await _host.setResizable(true);
     await _host.setMinimizable(true);
     await _host.setMaximizable(true);
@@ -348,7 +425,10 @@ class DesktopWindowController extends ChangeNotifier {
       color: compactWindowBackground,
       dark: false,
     );
+    await _host.setBackgroundColor(compactWindowBackground);
     await _host.setAsFrameless();
+    await _host.setHasShadow(false);
+    await _host.setBackgroundColor(compactWindowBackground);
     await _host.setResizable(false);
     await _host.setMinimizable(false);
     await _host.setMaximizable(false);
@@ -358,6 +438,7 @@ class DesktopWindowController extends ChangeNotifier {
     await _host.setMaximumSize(size);
     await _host.setBounds(null, position: position, size: size);
     await _host.show(inactive: true);
+    await _host.setBackgroundColor(compactWindowBackground);
   }
 
   Future<void> _applyWindowEffect(
@@ -395,6 +476,58 @@ class DesktopWindowController extends ChangeNotifier {
     } catch (_) {
       // Tray menu refresh is not critical to window mode switching.
     }
+  }
+
+  Future<void> _runWindowOpacityTimeline(
+    double from,
+    double to,
+    Duration duration,
+    Curve curve,
+    int revision,
+  ) async {
+    final start = from.clamp(0, 1).toDouble();
+    final end = to.clamp(0, 1).toDouble();
+
+    if (_isExiting || revision != _operationRevision) {
+      return;
+    }
+
+    await _setWindowOpacity(start);
+    final totalMicroseconds = duration.inMicroseconds;
+    if (totalMicroseconds <= 0) {
+      if (!_isExiting && revision == _operationRevision) {
+        await _setWindowOpacity(end);
+      }
+      return;
+    }
+
+    final stopwatch = Stopwatch()..start();
+    while (!_isExiting && revision == _operationRevision) {
+      final progress =
+          (stopwatch.elapsedMicroseconds / totalMicroseconds).clamp(0, 1);
+      final easedProgress = curve.transform(progress.toDouble());
+      final opacity = start + (end - start) * easedProgress;
+      await _setWindowOpacity(opacity);
+
+      if (progress >= 1) {
+        return;
+      }
+
+      await Future<void>.delayed(_opacityFrameInterval);
+    }
+  }
+
+  Future<void> _setWindowOpacity(double opacity) async {
+    try {
+      await _host.setOpacity(opacity.clamp(0, 1).toDouble());
+    } catch (_) {
+      // Opacity is a visual enhancement. If a Windows build rejects it, keep
+      // the mode switch functional and visible.
+    }
+  }
+
+  Future<void> _waitForModeFrame() async {
+    await Future<void>.delayed(_modeSwitchFrameDelay);
   }
 
   void _setMode(DesktopWindowMode mode) {

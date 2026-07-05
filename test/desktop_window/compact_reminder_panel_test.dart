@@ -127,6 +127,50 @@ void main() {
     expect(find.text('位置已保存'), findsNothing);
   });
 
+  testWidgets('removes outer border and fades chrome after hover exits',
+      (tester) async {
+    tester.view.physicalSize = const Size(360, 184);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      _compactPanelHarness(
+        tasks: const [],
+        reminders: const [],
+        expanded: false,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    var decoration = _compactPanelDecoration(tester);
+    expect(decoration.border, isNull);
+    expect(decoration.boxShadow, isNull);
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: const Offset(180, 92));
+    await tester.pump();
+
+    decoration = _compactPanelDecoration(tester);
+    expect(decoration.border, isNull);
+    expect(decoration.boxShadow, isNotNull);
+
+    await mouse.moveTo(const Offset(420, 240));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    decoration = _compactPanelDecoration(tester);
+    expect(decoration.boxShadow, isNotNull);
+
+    await tester.pump(const Duration(milliseconds: 3500));
+    await tester.pumpAndSettle();
+
+    decoration = _compactPanelDecoration(tester);
+    expect(decoration.border, isNull);
+    expect(decoration.boxShadow, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('collapses from expanded state without bottom overflow',
       (tester) async {
     tester.view.physicalSize = const Size(360, 360);
@@ -183,6 +227,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
+}
+
+BoxDecoration _compactPanelDecoration(WidgetTester tester) {
+  for (final container
+      in tester.widgetList<AnimatedContainer>(find.byType(AnimatedContainer))) {
+    final decoration = container.decoration;
+    if (decoration is BoxDecoration && decoration.gradient != null) {
+      return decoration;
+    }
+  }
+
+  fail('Compact panel decoration not found.');
 }
 
 Widget _compactPanelHarness({

@@ -16,6 +16,8 @@ import 'package:evoly/shared/ui/tokens/app_radii.dart';
 import 'package:evoly/shared/ui/tokens/app_spacing.dart';
 import 'package:evoly/shared/ui/tokens/evoly_design_tokens.dart';
 
+const _compactIdleFadeDelay = Duration(milliseconds: 3500);
+
 class CompactReminderPanel extends StatefulWidget {
   const CompactReminderPanel({
     required this.expanded,
@@ -42,7 +44,9 @@ class _CompactReminderPanelState extends State<CompactReminderPanel> {
   late Future<CompactReminderSnapshot> _snapshotFuture;
   int? _lastRefreshRevision;
   Timer? _dragFeedbackTimer;
+  Timer? _surfaceFadeTimer;
   var _panelHovered = false;
+  var _surfaceActive = false;
   var _dragging = false;
   String? _dragFeedback;
 
@@ -67,6 +71,7 @@ class _CompactReminderPanelState extends State<CompactReminderPanel> {
   @override
   void dispose() {
     _dragFeedbackTimer?.cancel();
+    _surfaceFadeTimer?.cancel();
     super.dispose();
   }
 
@@ -86,14 +91,18 @@ class _CompactReminderPanelState extends State<CompactReminderPanel> {
                 final data = snapshot.data;
                 final child = switch (snapshot.connectionState) {
                   ConnectionState.waiting when data == null =>
-                    const _CompactLoadingState(),
+                    _CompactLoadingState(
+                      surfaceActive: _surfaceActive || _dragging,
+                    ),
                   _ when snapshot.hasError => _CompactErrorState(
                       onRetry: _reload,
+                      surfaceActive: _surfaceActive || _dragging,
                     ),
                   _ => _CompactReminderContent(
                       snapshot: data,
                       expanded: widget.expanded,
                       actionsVisible: _panelHovered || _dragging,
+                      surfaceActive: _surfaceActive || _dragging,
                       dragFeedback: _dragFeedback,
                       onToggleExpanded: widget.onToggleExpanded,
                       onOpenFullMode: widget.onOpenFullMode,
@@ -133,13 +142,25 @@ class _CompactReminderPanelState extends State<CompactReminderPanel> {
       return;
     }
 
-    setState(() => _panelHovered = value);
+    if (value) {
+      _surfaceFadeTimer?.cancel();
+      setState(() {
+        _panelHovered = true;
+        _surfaceActive = true;
+      });
+      return;
+    }
+
+    setState(() => _panelHovered = false);
+    _scheduleSurfaceFade();
   }
 
   void _handleStartDrag() {
     _dragFeedbackTimer?.cancel();
+    _surfaceFadeTimer?.cancel();
     setState(() {
       _dragging = true;
+      _surfaceActive = true;
       _dragFeedback = '拖动中';
     });
     widget.onStartDrag();
@@ -156,12 +177,24 @@ class _CompactReminderPanelState extends State<CompactReminderPanel> {
       _dragging = false;
       _dragFeedback = '位置已保存';
     });
+    _scheduleSurfaceFade();
     _dragFeedbackTimer = Timer(const Duration(milliseconds: 1400), () {
       if (!mounted) {
         return;
       }
 
       setState(() => _dragFeedback = null);
+    });
+  }
+
+  void _scheduleSurfaceFade() {
+    _surfaceFadeTimer?.cancel();
+    _surfaceFadeTimer = Timer(_compactIdleFadeDelay, () {
+      if (!mounted || _panelHovered || _dragging || !_surfaceActive) {
+        return;
+      }
+
+      setState(() => _surfaceActive = false);
     });
   }
 
@@ -229,6 +262,7 @@ class _CompactReminderContent extends StatelessWidget {
     required this.snapshot,
     required this.expanded,
     required this.actionsVisible,
+    required this.surfaceActive,
     required this.dragFeedback,
     required this.onToggleExpanded,
     required this.onOpenFullMode,
@@ -243,6 +277,7 @@ class _CompactReminderContent extends StatelessWidget {
   final CompactReminderSnapshot? snapshot;
   final bool expanded;
   final bool actionsVisible;
+  final bool surfaceActive;
   final String? dragFeedback;
   final VoidCallback onToggleExpanded;
   final ValueChanged<String?> onOpenFullMode;
@@ -257,91 +292,84 @@ class _CompactReminderContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final data = snapshot;
     if (data == null) {
-      return const _CompactLoadingState();
+      return _CompactLoadingState(surfaceActive: surfaceActive);
     }
 
-    final skin = _CompactGlassSkin.of(context);
+    final skin = _CompactGlassSkin.resolve(context, active: surfaceActive);
     final tokens = EvolyDesignTokens.of(context);
 
-    return SizedBox.expand(
-      child: AnimatedContainer(
-        duration: MotionTokens.fast,
-        curve: MotionTokens.gentle,
-        decoration: BoxDecoration(
-          gradient: skin.panelGradient,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(
-            color: actionsVisible ? skin.borderActive : skin.border,
-            width: 0.8,
+    return _CompactGlassSkinScope(
+      skin: skin,
+      child: SizedBox.expand(
+        child: AnimatedContainer(
+          duration: MotionTokens.slow,
+          curve: MotionTokens.gentle,
+          decoration: BoxDecoration(
+            gradient: skin.panelGradient,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: surfaceActive
+                ? [
+                    BoxShadow(
+                      color: skin.shadow,
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : null,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: skin.shadow,
-              blurRadius: actionsVisible ? 20 : 14,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(22),
-          child: BackdropFilter(
-            filter: ui.ImageFilter.blur(
-              sigmaX: tokens.glassBlurSigma + 4,
-              sigmaY: tokens.glassBlurSigma + 4,
-            ),
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      border: Border(
-                        top: BorderSide(color: skin.innerHighlight),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(
+                sigmaX: tokens.glassBlurSigma + 4,
+                sigmaY: tokens.glassBlurSigma + 4,
+              ),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 9, 14, 9),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.max,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _CompactHeader(
+                            snapshot: data,
+                            expanded: expanded,
+                            actionsVisible: actionsVisible,
+                            dragFeedback: dragFeedback,
+                            onToggleExpanded: onToggleExpanded,
+                            onOpenFullMode: () => onOpenFullMode(null),
+                            onHideWindow: onHideWindow,
+                            onStartDrag: onStartDrag,
+                            onEndDrag: onEndDrag,
+                            onRefresh: onRefresh,
+                          ),
+                          const SizedBox(height: 5),
+                          _NextReminderBlock(
+                            reminder: data.nextReminder,
+                            onOpenTask: onOpenFullMode,
+                          ),
+                          const SizedBox(height: 5),
+                          _CompactMetricGrid(
+                              snapshot: data, expanded: expanded),
+                          Expanded(
+                            child: _CompactExpandedArea(
+                              expanded: expanded,
+                              child: _HighPriorityTaskList(
+                                tasks: data.highPriorityTasks,
+                                onOpenTask: onOpenFullMode,
+                                onCompleteTask: onCompleteTask,
+                                onPostponeTask: onPostponeTask,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                ),
-                Positioned.fill(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 9, 14, 9),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.max,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _CompactHeader(
-                          snapshot: data,
-                          expanded: expanded,
-                          actionsVisible: actionsVisible,
-                          dragFeedback: dragFeedback,
-                          onToggleExpanded: onToggleExpanded,
-                          onOpenFullMode: () => onOpenFullMode(null),
-                          onHideWindow: onHideWindow,
-                          onStartDrag: onStartDrag,
-                          onEndDrag: onEndDrag,
-                          onRefresh: onRefresh,
-                        ),
-                        const SizedBox(height: 5),
-                        _NextReminderBlock(
-                          reminder: data.nextReminder,
-                          onOpenTask: onOpenFullMode,
-                        ),
-                        const SizedBox(height: 5),
-                        _CompactMetricGrid(snapshot: data, expanded: expanded),
-                        Expanded(
-                          child: _CompactExpandedArea(
-                            expanded: expanded,
-                            child: _HighPriorityTaskList(
-                              tasks: data.highPriorityTasks,
-                              onOpenTask: onOpenFullMode,
-                              onCompleteTask: onCompleteTask,
-                              onPostponeTask: onPostponeTask,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -975,61 +1003,75 @@ class _CompactEmptyLine extends StatelessWidget {
 }
 
 class _CompactLoadingState extends StatelessWidget {
-  const _CompactLoadingState();
+  const _CompactLoadingState({required this.surfaceActive});
+
+  final bool surfaceActive;
 
   @override
   Widget build(BuildContext context) {
-    return _CompactStateShell(
-      child: DefaultTextStyle.merge(
-        style: TextStyle(color: _CompactGlassSkin.of(context).textMuted),
-        child: const AppLoadingState(label: '加载提醒', compact: true),
+    final skin = _CompactGlassSkin.resolve(context, active: surfaceActive);
+
+    return _CompactGlassSkinScope(
+      skin: skin,
+      child: _CompactStateShell(
+        child: DefaultTextStyle.merge(
+          style: TextStyle(color: skin.textMuted),
+          child: const AppLoadingState(label: '加载提醒', compact: true),
+        ),
       ),
     );
   }
 }
 
 class _CompactErrorState extends StatelessWidget {
-  const _CompactErrorState({required this.onRetry});
+  const _CompactErrorState({
+    required this.onRetry,
+    required this.surfaceActive,
+  });
 
   final VoidCallback onRetry;
+  final bool surfaceActive;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final skin = _CompactGlassSkin.of(context);
+    final skin = _CompactGlassSkin.resolve(context, active: surfaceActive);
 
-    return _CompactStateShell(
-      child: Row(
-        children: [
-          Icon(Icons.error_outline_rounded, color: skin.statusWarning),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              '提醒加载失败',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: skin.textStrong,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onRetry,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.sm,
-                vertical: AppSpacing.xs,
-              ),
+    return _CompactGlassSkinScope(
+      skin: skin,
+      child: _CompactStateShell(
+        child: Row(
+          children: [
+            Icon(Icons.error_outline_rounded, color: skin.statusWarning),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
               child: Text(
-                '重试',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: skin.accentStrong,
-                  fontWeight: FontWeight.w800,
+                '提醒加载失败',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: skin.textStrong,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
-          ),
-        ],
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onRetry,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.xs,
+                ),
+                child: Text(
+                  '重试',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: skin.accentStrong,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1181,7 +1223,6 @@ class _CompactStateShell extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: skin.panelGradient,
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: skin.border, width: 0.8),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(22),
@@ -1255,24 +1296,32 @@ class _CompactGlassSkin {
   final Color actionBorder;
 
   static _CompactGlassSkin of(BuildContext context) {
+    final scope =
+        context.dependOnInheritedWidgetOfExactType<_CompactGlassSkinScope>();
+    if (scope != null) {
+      return scope.skin;
+    }
+
+    return resolve(context, active: true);
+  }
+
+  static _CompactGlassSkin resolve(
+    BuildContext context, {
+    required bool active,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
     final tokens = EvolyDesignTokens.of(context);
     final isDark = colorScheme.brightness == Brightness.dark;
     final textBase = colorScheme.onSurface;
-    final panelHighlight = Color.alphaBlend(
-      tokens.glassHighlight.withValues(alpha: isDark ? 0.08 : 0.12),
-      tokens.glassSurfaceRaised,
-    );
+    final panelColors = _panelColors(tokens, isDark: isDark, active: active);
+    final cardColors = _cardColors(tokens, isDark: isDark, active: active);
+    final surfaceAlpha = active ? 1.0 : 0.58;
 
     return _CompactGlassSkin(
       panelGradient: LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [
-          panelHighlight,
-          tokens.glassSurface,
-          tokens.glassSurfaceSubtle,
-        ],
+        colors: panelColors,
       ),
       brandGradient: LinearGradient(
         begin: Alignment.topLeft,
@@ -1285,17 +1334,18 @@ class _CompactGlassSkin {
       cardGradient: LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [
-          tokens.glassSurfaceRaised,
-          tokens.glassSurfaceSubtle,
-        ],
+        colors: cardColors,
       ),
       border: tokens.glassBorder,
       borderActive: tokens.glassBorderStrong,
-      innerHighlight: tokens.glassHighlight,
-      cardBorder: tokens.glassBorder,
-      shadow: tokens.glassShadow,
-      cardShadow: tokens.glassShadow.withValues(alpha: isDark ? 0.12 : 0.05),
+      innerHighlight: Colors.transparent,
+      cardBorder: tokens.glassBorder.withValues(alpha: active ? 0.22 : 0.08),
+      shadow: tokens.glassShadow.withValues(
+        alpha: active ? (isDark ? 0.22 : 0.09) : (isDark ? 0.06 : 0.018),
+      ),
+      cardShadow: tokens.glassShadow.withValues(
+        alpha: active ? (isDark ? 0.10 : 0.035) : 0.0,
+      ),
       textStrong: textBase.withValues(alpha: 0.96),
       textMuted: textBase.withValues(alpha: 0.72),
       textFaint: textBase.withValues(alpha: 0.50),
@@ -1305,15 +1355,80 @@ class _CompactGlassSkin {
       statusSuccess: tokens.statusSuccess,
       statusWarning: tokens.statusWarning,
       iconOnAccent: Colors.white,
-      metricBackground: tokens.glassSurfaceSubtle,
-      rowBackground: tokens.glassSurfaceSubtle,
+      metricBackground: _surfaceColor(tokens.glassSurfaceSubtle, surfaceAlpha),
+      rowBackground: _surfaceColor(tokens.glassSurfaceSubtle, surfaceAlpha),
       rowHover: Color.alphaBlend(
         tokens.hudAccent.withValues(alpha: isDark ? 0.12 : 0.08),
-        tokens.glassSurfaceRaised,
+        _surfaceColor(tokens.glassSurfaceRaised, active ? 1.0 : 0.70),
       ),
       actionIcon: textBase.withValues(alpha: 0.88),
       actionHover: tokens.hudAccent.withValues(alpha: isDark ? 0.14 : 0.10),
       actionBorder: tokens.glassBorder,
     );
+  }
+
+  static List<Color> _panelColors(
+    EvolyDesignTokens tokens, {
+    required bool isDark,
+    required bool active,
+  }) {
+    if (isDark) {
+      return [
+        const Color(0xFF24344C).withValues(alpha: active ? 0.72 : 0.25),
+        const Color(0xFF1B3933).withValues(alpha: active ? 0.58 : 0.18),
+        const Color(0xFF282340).withValues(alpha: active ? 0.62 : 0.20),
+      ];
+    }
+
+    return [
+      Colors.white.withValues(alpha: active ? 0.74 : 0.22),
+      Color.alphaBlend(
+        tokens.metricAccent.withValues(alpha: active ? 0.06 : 0.025),
+        Colors.white.withValues(alpha: active ? 0.58 : 0.13),
+      ),
+      Color.alphaBlend(
+        tokens.hudAccent.withValues(alpha: active ? 0.05 : 0.02),
+        Colors.white.withValues(alpha: active ? 0.62 : 0.15),
+      ),
+    ];
+  }
+
+  static List<Color> _cardColors(
+    EvolyDesignTokens tokens, {
+    required bool isDark,
+    required bool active,
+  }) {
+    if (isDark) {
+      return [
+        const Color(0xFF2B3650).withValues(alpha: active ? 0.50 : 0.18),
+        const Color(0xFF222A3D).withValues(alpha: active ? 0.34 : 0.12),
+      ];
+    }
+
+    return [
+      Color.alphaBlend(
+        tokens.hudAccent.withValues(alpha: active ? 0.025 : 0.01),
+        Colors.white.withValues(alpha: active ? 0.56 : 0.17),
+      ),
+      Colors.white.withValues(alpha: active ? 0.36 : 0.09),
+    ];
+  }
+
+  static Color _surfaceColor(Color color, double alpha) {
+    return color.withValues(alpha: color.a * alpha);
+  }
+}
+
+class _CompactGlassSkinScope extends InheritedWidget {
+  const _CompactGlassSkinScope({
+    required this.skin,
+    required super.child,
+  });
+
+  final _CompactGlassSkin skin;
+
+  @override
+  bool updateShouldNotify(_CompactGlassSkinScope oldWidget) {
+    return skin != oldWidget.skin;
   }
 }

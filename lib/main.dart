@@ -28,7 +28,7 @@ Future<void> main() async {
         size: DesktopWindowController.fullDefaultSize,
         minimumSize: DesktopWindowController.fullMinimumSize,
         center: true,
-        alwaysOnTop: true,
+        alwaysOnTop: false,
         backgroundColor: DesktopWindowController.fullWindowBackground,
         title: 'Evoly',
         titleBarStyle: TitleBarStyle.hidden,

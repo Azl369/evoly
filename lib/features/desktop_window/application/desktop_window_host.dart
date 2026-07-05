@@ -105,6 +105,10 @@ abstract class DesktopWindowHost {
     bool dark = false,
   });
 
+  Future<void> setHasShadow(bool value);
+
+  Future<void> setOpacity(double opacity);
+
   Future<void> setAlwaysOnTop(bool value);
 
   Future<void> setResizable(bool value);
@@ -255,6 +259,22 @@ class PluginDesktopWindowHost extends DesktopWindowHost
     }
 
     return DesktopWindowEffects.setEffect(effect, color: color, dark: dark);
+  }
+
+  @override
+  Future<void> setHasShadow(bool value) {
+    if (!isWindows) {
+      return Future.value();
+    }
+    return window_plugin.windowManager.setHasShadow(value);
+  }
+
+  @override
+  Future<void> setOpacity(double opacity) {
+    if (!isWindows) {
+      return Future.value();
+    }
+    return window_plugin.windowManager.setOpacity(opacity);
   }
 
   @override

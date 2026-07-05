@@ -20,7 +20,15 @@ Windows 端已经从“移动端放大窗口”推进到双形态桌面体验：
   - 关闭行为可配置：隐藏到托盘、切到迷你面板、退出应用。
   - 托盘点击行为可配置：显示迷你面板、打开完整模式。
   - 迷你面板置顶开关、拖动位置保存、位置重置。
+  - 完整工作台恢复普通桌面应用逻辑，不再强制置顶；迷你面板继续按设置置顶。
+  - 迷你面板使用透明原生背景并关闭系统阴影，避免白边、黑底和脏背板。
   - 快速连续切换使用 revision 防抖，避免旧异步窗口操作覆盖新状态。
+
+- 双形态切换动画：
+  - full/compact 切换不再动画 Flutter 内容层，不使用会压扁界面的 stage 级 `Opacity`、`Transform` 或形变过渡。
+  - 切换改为 Windows 原生窗口透明度时间线：80ms 淡出、在完全透明时应用窗口尺寸/背景/effect/mode、等待一帧布局后 120ms 淡入。
+  - compact 展开/收起仍是固定窗口尺寸与内容稳定过渡，不触发整窗淡入淡出。
+  - 若 opacity 能力在系统组合下失败，会回退为可见的即时切换，避免窗口永久停在透明状态。
 
 - HUD 迷你面板：
   - 折叠态 `360 x 184`，展开态 `360 x 360`。
@@ -28,6 +36,7 @@ Windows 端已经从“移动端放大窗口”推进到双形态桌面体验：
   - 支持 hover 后显示刷新、打开完整模式、隐藏窗口等次级操作。
   - 支持任务行 hover 后完成/延后。
   - 支持点击任务回到完整模式并打开对应任务编辑面板。
+  - 外层边框已移除；hover/拖动时背景更实，鼠标离开约 3.5 秒后回到更轻的透明状态。
   - 避免 `Tooltip`、`IconButton.tooltip`、`InkWell` 等曾触发 Overlay/referenceBox 问题的交互组件。
 
 - 完整模式闭环：
@@ -81,13 +90,12 @@ lib/features/desktop_window/
 flutter analyze
 flutter test
 flutter build windows
-flutter build apk --debug
 ```
 
 已知非阻塞提示：
 
 - `flutter test` 中 sqflite default factory warning，属于测试环境已知提示。
-- `flutter build apk --debug` 中 `flutter_timezone` Kotlin Gradle Plugin 未来迁移 warning，和本次改动无关。
+- 依赖解析会提示部分包有更新版本或已停止维护，和本次改动无关。
 
 ## 手动验收清单
 

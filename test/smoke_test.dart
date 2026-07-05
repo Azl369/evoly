@@ -408,6 +408,12 @@ class _FakeDesktopWindowHost implements DesktopWindowHost {
   }) async {}
 
   @override
+  Future<void> setHasShadow(bool value) async {}
+
+  @override
+  Future<void> setOpacity(double opacity) async {}
+
+  @override
   Future<void> setAlwaysOnTop(bool value) async {}
 
   @override
