@@ -76,8 +76,10 @@ class AndroidNotificationService implements NotificationService {
     required String title,
     required String body,
     required DateTime scheduledAt,
+    NotificationRepeat repeat = NotificationRepeat.none,
   }) async {
-    if (!scheduledAt.isAfter(DateTime.now())) {
+    if (repeat == NotificationRepeat.none &&
+        !scheduledAt.isAfter(DateTime.now())) {
       await showNow(id: id, title: title, body: body);
       return;
     }
@@ -88,6 +90,7 @@ class AndroidNotificationService implements NotificationService {
         title: title,
         body: body,
         scheduledAt: scheduledAt,
+        repeat: repeat,
         scheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       );
     } on PlatformException catch (error, stackTrace) {
@@ -101,6 +104,7 @@ class AndroidNotificationService implements NotificationService {
         title: title,
         body: body,
         scheduledAt: scheduledAt,
+        repeat: repeat,
         scheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       );
     }
@@ -116,6 +120,7 @@ class AndroidNotificationService implements NotificationService {
     required String title,
     required String body,
     required DateTime scheduledAt,
+    required NotificationRepeat repeat,
     required AndroidScheduleMode scheduleMode,
   }) {
     return _plugin.zonedSchedule(
@@ -125,8 +130,18 @@ class AndroidNotificationService implements NotificationService {
       scheduledDate: tz.TZDateTime.from(scheduledAt, tz.local),
       notificationDetails: _details(),
       androidScheduleMode: scheduleMode,
+      matchDateTimeComponents: _matchDateTimeComponents(repeat),
       payload: id,
     );
+  }
+
+  DateTimeComponents? _matchDateTimeComponents(NotificationRepeat repeat) {
+    return switch (repeat) {
+      NotificationRepeat.none => null,
+      NotificationRepeat.daily => DateTimeComponents.time,
+      NotificationRepeat.weekly => DateTimeComponents.dayOfWeekAndTime,
+      NotificationRepeat.monthly => DateTimeComponents.dayOfMonthAndTime,
+    };
   }
 
   void _handleNotificationResponse(NotificationResponse response) {

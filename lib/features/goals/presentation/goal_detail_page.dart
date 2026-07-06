@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:evoly/app/data_refresh_listener.dart';
 import 'package:evoly/app/router.dart';
+import 'package:evoly/core/domain/priority.dart';
 import 'package:evoly/features/documents/application/project_summary_template.dart';
 import 'package:evoly/features/documents/data/document_repository.dart';
 import 'package:evoly/features/documents/domain/evoly_document.dart';
@@ -10,6 +11,7 @@ import 'package:evoly/features/goals/data/goal_repository.dart';
 import 'package:evoly/features/goals/domain/goal.dart';
 import 'package:evoly/features/goals/presentation/widgets/goal_edit_sheet.dart';
 import 'package:evoly/features/reminders/application/task_reminder_service.dart';
+import 'package:evoly/features/reminders/presentation/task_reminder_picker.dart';
 import 'package:evoly/features/tasks/data/task_repository.dart';
 import 'package:evoly/features/tasks/domain/task_item.dart';
 import 'package:evoly/features/tasks/presentation/widgets/task_card.dart';
@@ -18,7 +20,9 @@ import 'package:evoly/features/tasks/presentation/widgets/task_edit_sheet.dart';
 import 'package:evoly/shared/ui/components/animated_progress_bar.dart';
 import 'package:evoly/shared/ui/components/app_components.dart';
 import 'package:evoly/shared/ui/motion/motion_tokens.dart';
+import 'package:evoly/shared/ui/tokens/app_radii.dart';
 import 'package:evoly/shared/ui/tokens/app_spacing.dart';
+import 'package:evoly/shared/ui/tokens/evoly_design_tokens.dart';
 import 'package:evoly/shared/widgets/empty_state.dart';
 import 'package:uuid/uuid.dart';
 
@@ -53,20 +57,20 @@ class _GoalDetailPageState extends State<GoalDetailPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('目标详情'),
-        actions: [
-          IconButton(
-            onPressed: _goal == null ? null : _showEditGoalSheet,
-            icon: const Icon(Icons.edit_outlined),
-          ),
-          IconButton(
-            onPressed: _goal == null ? null : _showCreateTaskSheet,
-            icon: const Icon(Icons.add_task_rounded),
-          ),
-        ],
-      ),
+    return AppPageScaffold(
+      title: '目标详情',
+      actions: [
+        IconButton(
+          tooltip: '编辑目标',
+          onPressed: _goal == null ? null : _showEditGoalSheet,
+          icon: const Icon(Icons.edit_outlined),
+        ),
+        IconButton(
+          tooltip: '新增子任务',
+          onPressed: _goal == null ? null : _showCreateTaskSheet,
+          icon: const Icon(Icons.add_task_rounded),
+        ),
+      ],
       body: _buildBody(),
     );
   }
@@ -112,20 +116,12 @@ class _GoalDetailPageState extends State<GoalDetailPage>
           AppSpacing.xxl,
         ),
         children: [
-          Text(goal.title, style: Theme.of(context).textTheme.headlineSmall),
-          if (goal.description.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Text(goal.description,
-                style: Theme.of(context).textTheme.bodyMedium),
-          ],
-          const SizedBox(height: AppSpacing.lg),
-          AnimatedProgressBar(value: _calculatedProgress),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            '$_completedCount/${_tasks.length} 个子任务完成',
-            style: Theme.of(context).textTheme.bodySmall,
+          _GoalOverviewSection(
+            goal: goal,
+            progress: _calculatedProgress,
+            completedCount: _completedCount,
+            taskCount: _tasks.length,
           ),
-          const SizedBox(height: AppSpacing.lg),
           _GoalDocumentsSection(
             goal: goal,
             documents: _documents,
@@ -134,34 +130,14 @@ class _GoalDetailPageState extends State<GoalDetailPage>
             onCreateSummary: _createProjectSummary,
             onOpenFolder: _openGoalFolder,
           ),
-          const SizedBox(height: AppSpacing.lg),
-          Row(
-            children: [
-              Text('子任务', style: Theme.of(context).textTheme.titleMedium),
-              const Spacer(),
-              TextButton.icon(
-                onPressed: _showCreateTaskSheet,
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('新增'),
-              ),
-            ],
+          _GoalTasksSection(
+            tasks: _tasks,
+            onCreateTask: _showCreateTaskSheet,
+            onCompleteTask: _completeTask,
+            onEditTask: _showEditTaskSheet,
+            onPostponeTask: _postponeTask,
+            onDeleteTask: _deleteTask,
           ),
-          const SizedBox(height: AppSpacing.sm),
-          if (_tasks.isEmpty)
-            const EmptyState(
-              icon: Icons.playlist_add_check_outlined,
-              title: '还没有子任务',
-              message: '点击新增创建子任务。',
-            )
-          else
-            for (final task in _tasks)
-              _TaskRow(
-                task: task,
-                onComplete: task.isCompleted ? null : () => _completeTask(task),
-                onEdit: () => _showEditTaskSheet(task),
-                onPostpone: task.isCompleted ? null : () => _postponeTask(task),
-                onDelete: () => _deleteTask(task),
-              ),
         ],
       ),
     );
@@ -228,8 +204,8 @@ class _GoalDetailPageState extends State<GoalDetailPage>
       showDragHandle: true,
       builder: (context) {
         return TaskCreateSheet(
-          onCreate: (title, estimatedMinutes) {
-            return _createTask(title, estimatedMinutes);
+          onCreate: (title, estimatedMinutes, reminder) {
+            return _createTask(title, estimatedMinutes, reminder);
           },
         );
       },
@@ -362,12 +338,18 @@ class _GoalDetailPageState extends State<GoalDetailPage>
     }
   }
 
-  Future<void> _createTask(String title, int estimatedMinutes) async {
+  Future<void> _createTask(
+    String title,
+    int estimatedMinutes,
+    TaskReminderSelection reminder,
+  ) async {
     final goal = _goal;
     if (goal == null) {
       return;
     }
 
+    final taskRepository = context.read<TaskRepository>();
+    final reminderService = context.read<TaskReminderService>();
     final now = DateTime.now();
     final task = TaskItem(
       id: const Uuid().v4(),
@@ -381,7 +363,15 @@ class _GoalDetailPageState extends State<GoalDetailPage>
       updatedAt: now,
     );
 
-    await context.read<TaskRepository>().save(task);
+    await taskRepository.save(task);
+    if (reminder.enabled) {
+      await reminderService.saveForTask(
+        taskId: task.id,
+        remindAt: reminder.remindAt,
+        repeatRule: reminder.repeatRule,
+        notificationBody: task.title,
+      );
+    }
     if (mounted) {
       notifyDataChanged();
     }
@@ -542,11 +532,13 @@ class _GoalDetailPageState extends State<GoalDetailPage>
           title: '编辑子任务',
           task: task,
           reminder: reminder,
-          onSave: (updatedTask, remindAt) async {
+          onSave: (updatedTask, reminder) async {
             await _updateTask(task, updatedTask);
             await reminderService.saveForTask(
               taskId: task.id,
-              remindAt: remindAt,
+              remindAt: reminder.remindAt,
+              repeatRule: reminder.repeatRule,
+              notificationBody: updatedTask.title,
             );
           },
         );
@@ -589,6 +581,120 @@ class _GoalDetailPageState extends State<GoalDetailPage>
   }
 }
 
+class _GoalOverviewSection extends StatelessWidget {
+  const _GoalOverviewSection({
+    required this.goal,
+    required this.progress,
+    required this.completedCount,
+    required this.taskCount,
+  });
+
+  final Goal goal;
+  final double progress;
+  final int completedCount;
+  final int taskCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = EvolyDesignTokens.of(context);
+    final description = goal.description.trim();
+
+    return AppSurface(
+      variant: AppSurfaceVariant.raised,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            goal.title,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: tokens.textPrimary,
+            ),
+          ),
+          if (description.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              description,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: tokens.textSecondary,
+              ),
+            ),
+          ],
+          const SizedBox(height: AppSpacing.md),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              AppStatusBadge(
+                label: goal.status.label,
+                color: _statusColor(context, goal.status),
+                icon: _statusIcon(goal.status),
+              ),
+              AppMetaPill(
+                label: '${goal.priority.label}优先级',
+                icon: Icons.flag_rounded,
+                color: _priorityColor(tokens, goal.priority),
+                selected: true,
+              ),
+              if (goal.dueDate != null)
+                AppMetaPill(
+                  label: '截止 ${_formatDate(goal.dueDate!)}',
+                  icon: Icons.event_outlined,
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          AnimatedProgressBar(value: progress),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            '$completedCount/$taskCount 个子任务完成',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: tokens.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _priorityColor(EvolyDesignTokens tokens, Priority priority) {
+    return switch (priority) {
+      Priority.high => tokens.priorityHigh,
+      Priority.medium => tokens.priorityMedium,
+      Priority.low => tokens.priorityLow,
+    };
+  }
+
+  Color _statusColor(BuildContext context, GoalStatus status) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final tokens = EvolyDesignTokens.of(context);
+
+    return switch (status) {
+      GoalStatus.notStarted => tokens.statusNeutral,
+      GoalStatus.inProgress => tokens.statusInfo,
+      GoalStatus.completed => tokens.statusSuccess,
+      GoalStatus.paused => tokens.statusWarning,
+      GoalStatus.abandoned => colorScheme.error,
+    };
+  }
+
+  IconData _statusIcon(GoalStatus status) {
+    return switch (status) {
+      GoalStatus.notStarted => Icons.radio_button_unchecked_rounded,
+      GoalStatus.inProgress => Icons.track_changes_rounded,
+      GoalStatus.completed => Icons.check_circle_rounded,
+      GoalStatus.paused => Icons.pause_circle_outline_rounded,
+      GoalStatus.abandoned => Icons.cancel_rounded,
+    };
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.month.toString().padLeft(2, '0')}/'
+        '${date.day.toString().padLeft(2, '0')}';
+  }
+}
+
 class _GoalDocumentsSection extends StatelessWidget {
   const _GoalDocumentsSection({
     required this.goal,
@@ -609,25 +715,22 @@ class _GoalDocumentsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tokens = EvolyDesignTokens.of(context);
 
-    return Card(
-      child: Padding(
+    return AppSection(
+      title: '目标档案',
+      padding: EdgeInsets.zero,
+      trailing: TextButton.icon(
+        onPressed: onOpenFolder,
+        icon: const Icon(Icons.folder_open_outlined),
+        label: const Text('打开文件夹'),
+      ),
+      child: AppSurface(
+        variant: AppSurfaceVariant.raised,
         padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Text('目标档案', style: theme.textTheme.titleMedium),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: onOpenFolder,
-                  icon: const Icon(Icons.folder_open_outlined),
-                  label: const Text('打开文件夹'),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
             Wrap(
               spacing: AppSpacing.xs,
               runSpacing: AppSpacing.xs,
@@ -646,18 +749,20 @@ class _GoalDocumentsSection extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: AppSpacing.xs),
+            const SizedBox(height: AppSpacing.sm),
             if (documents.isEmpty)
               Text(
                 goal.status == GoalStatus.completed ? '可创建项目总结。' : '暂无文档。',
-                style: theme.textTheme.bodyMedium,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: tokens.textSecondary,
+                ),
               )
             else
               ...documents.map((document) {
                 return Padding(
                   padding: const EdgeInsets.only(top: AppSpacing.sm),
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(AppRadii.element),
                     onTap: () => onOpenDocument(document),
                     child: Padding(
                       padding: const EdgeInsets.all(AppSpacing.sm),
@@ -689,12 +794,17 @@ class _GoalDocumentsSection extends StatelessWidget {
                                   document.excerpt,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodySmall,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: tokens.textSecondary,
+                                  ),
                                 ),
                               ],
                             ),
                           ),
-                          const Icon(Icons.chevron_right_rounded),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            color: tokens.textSecondary,
+                          ),
                         ],
                       ),
                     ),
@@ -704,6 +814,65 @@ class _GoalDocumentsSection extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _GoalTasksSection extends StatelessWidget {
+  const _GoalTasksSection({
+    required this.tasks,
+    required this.onCreateTask,
+    required this.onCompleteTask,
+    required this.onEditTask,
+    required this.onPostponeTask,
+    required this.onDeleteTask,
+  });
+
+  final List<TaskItem> tasks;
+  final VoidCallback onCreateTask;
+  final ValueChanged<TaskItem> onCompleteTask;
+  final ValueChanged<TaskItem> onEditTask;
+  final ValueChanged<TaskItem> onPostponeTask;
+  final ValueChanged<TaskItem> onDeleteTask;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppSection(
+      title: '子任务',
+      padding: EdgeInsets.zero,
+      trailing: TextButton.icon(
+        onPressed: onCreateTask,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('新增'),
+      ),
+      child: tasks.isEmpty
+          ? AppSurface(
+              variant: AppSurfaceVariant.muted,
+              padding: EdgeInsets.zero,
+              child: EmptyState(
+                icon: Icons.playlist_add_check_outlined,
+                title: '还没有子任务',
+                message: '点击新增创建子任务。',
+                actionLabel: '新增',
+                onAction: onCreateTask,
+                compact: true,
+              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final task in tasks)
+                  _TaskRow(
+                    task: task,
+                    onComplete:
+                        task.isCompleted ? null : () => onCompleteTask(task),
+                    onEdit: () => onEditTask(task),
+                    onPostpone:
+                        task.isCompleted ? null : () => onPostponeTask(task),
+                    onDelete: () => onDeleteTask(task),
+                  ),
+              ],
+            ),
     );
   }
 }
@@ -746,6 +915,7 @@ class _TaskRow extends StatelessWidget {
         child: TaskCard(
           task: task,
           onComplete: onComplete,
+          margin: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           trailing: PopupMenuButton<_TaskAction>(
             onSelected: (action) {
               switch (action) {

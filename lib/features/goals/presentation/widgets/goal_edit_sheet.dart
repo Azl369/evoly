@@ -3,8 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:evoly/core/domain/priority.dart';
 import 'package:evoly/features/goals/domain/goal.dart';
+import 'package:evoly/shared/ui/bottom_sheets/bottom_sheet_form_layout.dart';
 import 'package:evoly/shared/ui/bottom_sheets/bottom_sheet_focus.dart';
-import 'package:evoly/shared/ui/bottom_sheets/responsive_bottom_sheet_body.dart';
+import 'package:evoly/shared/ui/components/app_components.dart';
 import 'package:evoly/shared/ui/components/slide_select_field.dart';
 import 'package:evoly/shared/ui/tokens/app_spacing.dart';
 import 'package:evoly/shared/ui/tokens/evoly_design_tokens.dart';
@@ -77,56 +78,48 @@ class _GoalEditSheetState extends State<GoalEditSheet> {
         }
         await _close();
       },
-      child: ResponsiveBottomSheetBody(
+      child: BottomSheetFormLayout(
         minHeight: 260,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '编辑目标',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                _AutoSaveStatus(
-                  saving: _saving,
-                  errorMessage: _saveError,
-                  hasSavedChanges: _hasSavedChanges,
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            TextField(
+        spacing: AppSpacing.sm,
+        headerSpacing: AppSpacing.sm,
+        title: '编辑目标',
+        trailing: _AutoSaveStatus(
+          saving: _saving,
+          errorMessage: _saveError,
+          hasSavedChanges: _hasSavedChanges,
+        ),
+        footer: SizedBox(
+          height: AppSpacing.minTouchTarget + AppSpacing.xs,
+          child: FilledButton.icon(
+            onPressed: _close,
+            icon: const Icon(Icons.check_rounded),
+            label: const Text('完成'),
+          ),
+        ),
+        children: [
+          AppField(
+            label: '目标名称',
+            isRequired: true,
+            child: TextField(
               controller: _titleController,
               focusNode: _titleFocusNode,
               maxLines: 1,
               textInputAction: TextInputAction.next,
-              decoration: _compactInputDecoration('目标名称'),
+              decoration: _compactInputDecoration(),
             ),
-            const SizedBox(height: AppSpacing.sm),
-            TextField(
+          ),
+          AppField(
+            label: '目标描述（可选）',
+            child: TextField(
               controller: _descriptionController,
               minLines: 1,
               maxLines: 2,
               textInputAction: TextInputAction.done,
-              decoration: _compactInputDecoration('目标描述（可选）'),
+              decoration: _compactInputDecoration(),
             ),
-            const SizedBox(height: AppSpacing.sm),
-            _buildMetaSelectors(context),
-            const SizedBox(height: AppSpacing.compact),
-            SizedBox(
-              height: AppSpacing.minTouchTarget + AppSpacing.xs,
-              child: FilledButton.icon(
-                onPressed: _close,
-                icon: const Icon(Icons.check_rounded),
-                label: const Text('完成'),
-              ),
-            ),
-          ],
-        ),
+          ),
+          _buildMetaSelectors(context),
+        ],
       ),
     );
   }
@@ -155,11 +148,10 @@ class _GoalEditSheetState extends State<GoalEditSheet> {
     );
   }
 
-  InputDecoration _compactInputDecoration(String label) {
-    return InputDecoration(
-      labelText: label,
+  InputDecoration _compactInputDecoration() {
+    return const InputDecoration(
       isDense: true,
-      contentPadding: const EdgeInsets.symmetric(
+      contentPadding: EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
         vertical: AppSpacing.compact,
       ),

@@ -17,6 +17,12 @@ import 'package:evoly/shared/ui/tokens/app_spacing.dart';
 import 'package:evoly/shared/ui/tokens/evoly_design_tokens.dart';
 
 const _compactIdleFadeDelay = Duration(milliseconds: 3500);
+const _compactPanelRadius = AppRadii.lg;
+const _compactPanelBlurBoost = 4.0;
+const _compactCardRadius = AppRadii.container;
+const _compactMetricRadius = AppRadii.element;
+const _compactTaskRadius = AppRadii.container;
+const _compactActionButtonSize = 28.0;
 
 class CompactReminderPanel extends StatefulWidget {
   const CompactReminderPanel({
@@ -296,80 +302,88 @@ class _CompactReminderContent extends StatelessWidget {
     }
 
     final skin = _CompactGlassSkin.resolve(context, active: surfaceActive);
-    final tokens = EvolyDesignTokens.of(context);
 
     return _CompactGlassSkinScope(
       skin: skin,
-      child: SizedBox.expand(
-        child: AnimatedContainer(
-          duration: MotionTokens.slow,
-          curve: MotionTokens.gentle,
-          decoration: BoxDecoration(
-            gradient: skin.panelGradient,
-            borderRadius: BorderRadius.circular(22),
-            boxShadow: surfaceActive
-                ? [
-                    BoxShadow(
-                      color: skin.shadow,
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ]
-                : null,
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(22),
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(
-                sigmaX: tokens.glassBlurSigma + 4,
-                sigmaY: tokens.glassBlurSigma + 4,
+      child: _CompactHudSurface(
+        active: surfaceActive,
+        padding: const EdgeInsets.fromLTRB(14, 9, 14, 9),
+        child: Column(
+          mainAxisSize: MainAxisSize.max,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _CompactHeader(
+              snapshot: data,
+              expanded: expanded,
+              actionsVisible: actionsVisible,
+              dragFeedback: dragFeedback,
+              onToggleExpanded: onToggleExpanded,
+              onOpenFullMode: () => onOpenFullMode(null),
+              onHideWindow: onHideWindow,
+              onStartDrag: onStartDrag,
+              onEndDrag: onEndDrag,
+              onRefresh: onRefresh,
+            ),
+            const SizedBox(height: 5),
+            _NextReminderBlock(
+              reminder: data.nextReminder,
+              onOpenTask: onOpenFullMode,
+            ),
+            const SizedBox(height: 5),
+            _CompactMetricGrid(snapshot: data, expanded: expanded),
+            Expanded(
+              child: _CompactExpandedArea(
+                expanded: expanded,
+                child: _HighPriorityTaskList(
+                  tasks: data.highPriorityTasks,
+                  onOpenTask: onOpenFullMode,
+                  onCompleteTask: onCompleteTask,
+                  onPostponeTask: onPostponeTask,
+                ),
               ),
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 9, 14, 9),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.max,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _CompactHeader(
-                            snapshot: data,
-                            expanded: expanded,
-                            actionsVisible: actionsVisible,
-                            dragFeedback: dragFeedback,
-                            onToggleExpanded: onToggleExpanded,
-                            onOpenFullMode: () => onOpenFullMode(null),
-                            onHideWindow: onHideWindow,
-                            onStartDrag: onStartDrag,
-                            onEndDrag: onEndDrag,
-                            onRefresh: onRefresh,
-                          ),
-                          const SizedBox(height: 5),
-                          _NextReminderBlock(
-                            reminder: data.nextReminder,
-                            onOpenTask: onOpenFullMode,
-                          ),
-                          const SizedBox(height: 5),
-                          _CompactMetricGrid(
-                              snapshot: data, expanded: expanded),
-                          Expanded(
-                            child: _CompactExpandedArea(
-                              expanded: expanded,
-                              child: _HighPriorityTaskList(
-                                tasks: data.highPriorityTasks,
-                                onOpenTask: onOpenFullMode,
-                                onCompleteTask: onCompleteTask,
-                                onPostponeTask: onPostponeTask,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CompactHudSurface extends StatelessWidget {
+  const _CompactHudSurface({
+    required this.active,
+    required this.child,
+    this.padding = EdgeInsets.zero,
+  });
+
+  final bool active;
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final skin = _CompactGlassSkin.of(context);
+    final tokens = EvolyDesignTokens.of(context);
+
+    return SizedBox.expand(
+      child: AnimatedContainer(
+        duration: MotionTokens.slow,
+        curve: MotionTokens.gentle,
+        decoration: BoxDecoration(
+          gradient: skin.panelGradient,
+          borderRadius: BorderRadius.circular(_compactPanelRadius),
+          boxShadow: active ? skin.panelShadow : null,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(_compactPanelRadius),
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(
+              sigmaX: tokens.glassBlurSigma + _compactPanelBlurBoost,
+              sigmaY: tokens.glassBlurSigma + _compactPanelBlurBoost,
+            ),
+            child: Padding(
+              padding: padding,
+              child: child,
             ),
           ),
         ),
@@ -421,7 +435,7 @@ class _CompactHeader extends StatelessWidget {
                 DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: skin.brandGradient,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(AppRadii.inner),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(7),
@@ -586,7 +600,7 @@ class _NextReminderBlock extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             gradient: skin.cardGradient,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(_compactCardRadius),
             border: Border.all(color: skin.cardBorder),
             boxShadow: [
               BoxShadow(
@@ -772,7 +786,7 @@ class _CompactMetricCard extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: skin.metricBackground,
-        borderRadius: BorderRadius.circular(11),
+        borderRadius: BorderRadius.circular(_compactMetricRadius),
         border: Border.all(color: skin.cardBorder),
       ),
       child: Padding(
@@ -908,7 +922,7 @@ class _CompactTaskRowState extends State<_CompactTaskRow> {
           curve: MotionTokens.gentle,
           decoration: BoxDecoration(
             color: backgroundColor,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(_compactTaskRadius),
             border: Border.all(color: borderColor),
           ),
           child: GestureDetector(
@@ -1014,6 +1028,7 @@ class _CompactLoadingState extends StatelessWidget {
     return _CompactGlassSkinScope(
       skin: skin,
       child: _CompactStateShell(
+        active: surfaceActive,
         child: DefaultTextStyle.merge(
           style: TextStyle(color: skin.textMuted),
           child: const AppLoadingState(label: '加载提醒', compact: true),
@@ -1040,6 +1055,7 @@ class _CompactErrorState extends StatelessWidget {
     return _CompactGlassSkinScope(
       skin: skin,
       child: _CompactStateShell(
+        active: surfaceActive,
         child: Row(
           children: [
             Icon(Icons.error_outline_rounded, color: skin.statusWarning),
@@ -1096,44 +1112,69 @@ class _CompactIconButton extends StatefulWidget {
 
 class _CompactIconButtonState extends State<_CompactIconButton> {
   var _hovered = false;
+  var _pressed = false;
+
+  @override
+  void didUpdateWidget(covariant _CompactIconButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.revealed) {
+      _hovered = false;
+      _pressed = false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final skin = _CompactGlassSkin.of(context);
-    final backgroundColor =
-        _hovered && widget.revealed ? skin.actionHover : Colors.transparent;
+    final interactive = widget.revealed;
+    final backgroundColor = !interactive
+        ? Colors.transparent
+        : _pressed
+            ? skin.actionPressed
+            : _hovered
+                ? skin.actionHover
+                : Colors.transparent;
+    final borderColor = !interactive
+        ? Colors.transparent
+        : _pressed
+            ? skin.borderActive
+            : _hovered
+                ? skin.actionBorder
+                : Colors.transparent;
 
     return SizedBox.square(
-      dimension: 28,
+      dimension: _compactActionButtonSize,
       child: ExcludeSemantics(
-        excluding: !widget.revealed,
+        excluding: !interactive,
         child: IgnorePointer(
-          ignoring: !widget.revealed,
+          ignoring: !interactive,
           child: AnimatedOpacity(
             duration: MotionTokens.fast,
             curve: MotionTokens.gentle,
-            opacity: widget.revealed ? 1 : 0,
+            opacity: interactive ? 1 : 0,
             child: Semantics(
               button: true,
               label: widget.tooltip,
               child: MouseRegion(
                 onEnter: (_) => setState(() => _hovered = true),
-                onExit: (_) => setState(() => _hovered = false),
+                onExit: (_) => setState(() {
+                  _hovered = false;
+                  _pressed = false;
+                }),
                 cursor: SystemMouseCursors.click,
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: widget.onPressed,
+                  onTapDown: (_) => setState(() => _pressed = true),
+                  onTapUp: (_) => setState(() => _pressed = false),
+                  onTapCancel: () => setState(() => _pressed = false),
                   child: AnimatedContainer(
                     duration: MotionTokens.fast,
                     curve: MotionTokens.gentle,
                     decoration: BoxDecoration(
                       color: backgroundColor,
                       borderRadius: BorderRadius.circular(AppRadii.sm),
-                      border: Border.all(
-                        color: _hovered && widget.revealed
-                            ? skin.actionBorder
-                            : Colors.transparent,
-                      ),
+                      border: Border.all(color: borderColor),
                     ),
                     child: Center(
                       child: Icon(
@@ -1209,34 +1250,21 @@ _ReminderStatus _reminderStatus(CompactReminderItem? reminder) {
 }
 
 class _CompactStateShell extends StatelessWidget {
-  const _CompactStateShell({required this.child});
+  const _CompactStateShell({
+    required this.active,
+    required this.child,
+  });
 
+  final bool active;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final skin = _CompactGlassSkin.of(context);
-    final tokens = EvolyDesignTokens.of(context);
-
-    return SizedBox.expand(
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: skin.panelGradient,
-          borderRadius: BorderRadius.circular(22),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(22),
-          child: BackdropFilter(
-            filter: ui.ImageFilter.blur(
-              sigmaX: tokens.glassBlurSigma + 4,
-              sigmaY: tokens.glassBlurSigma + 4,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Center(child: child),
-            ),
-          ),
-        ),
+    return _CompactHudSurface(
+      active: active,
+      padding: const EdgeInsets.all(18),
+      child: Center(
+        child: child,
       ),
     );
   }
@@ -1251,7 +1279,7 @@ class _CompactGlassSkin {
     required this.borderActive,
     required this.innerHighlight,
     required this.cardBorder,
-    required this.shadow,
+    required this.panelShadow,
     required this.cardShadow,
     required this.textStrong,
     required this.textMuted,
@@ -1267,6 +1295,7 @@ class _CompactGlassSkin {
     required this.rowHover,
     required this.actionIcon,
     required this.actionHover,
+    required this.actionPressed,
     required this.actionBorder,
   });
 
@@ -1277,7 +1306,7 @@ class _CompactGlassSkin {
   final Color borderActive;
   final Color innerHighlight;
   final Color cardBorder;
-  final Color shadow;
+  final List<BoxShadow> panelShadow;
   final Color cardShadow;
   final Color textStrong;
   final Color textMuted;
@@ -1293,6 +1322,7 @@ class _CompactGlassSkin {
   final Color rowHover;
   final Color actionIcon;
   final Color actionHover;
+  final Color actionPressed;
   final Color actionBorder;
 
   static _CompactGlassSkin of(BuildContext context) {
@@ -1339,12 +1369,16 @@ class _CompactGlassSkin {
       border: tokens.glassBorder,
       borderActive: tokens.glassBorderStrong,
       innerHighlight: Colors.transparent,
-      cardBorder: tokens.glassBorder.withValues(alpha: active ? 0.22 : 0.08),
-      shadow: tokens.glassShadow.withValues(
-        alpha: active ? (isDark ? 0.22 : 0.09) : (isDark ? 0.06 : 0.018),
+      cardBorder: _borderColor(tokens.borderSubtle, tokens.hudAccent,
+          accentAlpha: active ? 0.10 : 0.03, alpha: active ? 0.72 : 0.28),
+      panelShadow: _shadowLayer(
+        tokens.shadowMedium,
+        alphaScale: isDark ? 0.85 : 0.90,
       ),
-      cardShadow: tokens.glassShadow.withValues(
-        alpha: active ? (isDark ? 0.10 : 0.035) : 0.0,
+      cardShadow: _shadowColor(
+        tokens.shadowLow,
+        fallback: tokens.glassShadow,
+        alphaScale: active ? (isDark ? 0.72 : 0.58) : 0.0,
       ),
       textStrong: textBase.withValues(alpha: 0.96),
       textMuted: textBase.withValues(alpha: 0.72),
@@ -1355,16 +1389,52 @@ class _CompactGlassSkin {
       statusSuccess: tokens.statusSuccess,
       statusWarning: tokens.statusWarning,
       iconOnAccent: Colors.white,
-      metricBackground: _surfaceColor(tokens.glassSurfaceSubtle, surfaceAlpha),
-      rowBackground: _surfaceColor(tokens.glassSurfaceSubtle, surfaceAlpha),
+      metricBackground: _surfaceColor(tokens.surfaceMuted, surfaceAlpha),
+      rowBackground: _surfaceColor(tokens.surfaceMuted, surfaceAlpha),
       rowHover: Color.alphaBlend(
         tokens.hudAccent.withValues(alpha: isDark ? 0.12 : 0.08),
-        _surfaceColor(tokens.glassSurfaceRaised, active ? 1.0 : 0.70),
+        _surfaceColor(tokens.cardSurface, active ? 1.0 : 0.70),
       ),
       actionIcon: textBase.withValues(alpha: 0.88),
       actionHover: tokens.hudAccent.withValues(alpha: isDark ? 0.14 : 0.10),
-      actionBorder: tokens.glassBorder,
+      actionPressed: tokens.hudAccent.withValues(alpha: isDark ? 0.24 : 0.18),
+      actionBorder: tokens.borderSubtle,
     );
+  }
+
+  static Color _borderColor(
+    Color base,
+    Color accent, {
+    required double accentAlpha,
+    required double alpha,
+  }) {
+    return Color.alphaBlend(
+      accent.withValues(alpha: accentAlpha),
+      base,
+    ).withValues(alpha: alpha);
+  }
+
+  static List<BoxShadow> _shadowLayer(
+    List<BoxShadow> shadows, {
+    required double alphaScale,
+  }) {
+    return [
+      for (final shadow in shadows)
+        shadow.copyWith(
+          color: shadow.color.withValues(
+            alpha: shadow.color.a * alphaScale,
+          ),
+        ),
+    ];
+  }
+
+  static Color _shadowColor(
+    List<BoxShadow> shadows, {
+    required Color fallback,
+    required double alphaScale,
+  }) {
+    final color = shadows.isEmpty ? fallback : shadows.first.color;
+    return color.withValues(alpha: color.a * alphaScale);
   }
 
   static List<Color> _panelColors(

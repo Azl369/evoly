@@ -55,10 +55,53 @@ class ReminderInbox {
           systemNotificationShown: systemNotificationShown,
         ),
       );
-      await reminderRepository.markFired(reminder.id, now);
+      await _completeDueReminder(reminder, task.title, now);
     }
 
     return messages;
+  }
+
+  Future<void> _completeDueReminder(
+    Reminder reminder,
+    String notificationBody,
+    DateTime now,
+  ) async {
+    final nextRemindAt = reminder.repeatRule.nextOccurrenceAfter(
+      reminder.remindAt,
+      now,
+    );
+    if (nextRemindAt == null) {
+      await reminderRepository.markFired(reminder.id, now);
+      return;
+    }
+
+    final nextReminder = reminder.copyWith(
+      remindAt: nextRemindAt,
+      updatedAt: now,
+      clearFiredAt: true,
+    );
+    await reminderRepository.save(nextReminder);
+
+    try {
+      await notificationService.schedule(
+        id: nextReminder.id,
+        title: 'Evoly 提醒',
+        body: notificationBody,
+        scheduledAt: nextReminder.remindAt,
+        repeat: _notificationRepeatFor(nextReminder.repeatRule),
+      );
+    } catch (_) {
+      // The database rule has moved forward; notification resync can retry.
+    }
+  }
+
+  NotificationRepeat _notificationRepeatFor(RepeatRule repeatRule) {
+    return switch (repeatRule) {
+      RepeatRule.daily => NotificationRepeat.daily,
+      RepeatRule.weekly => NotificationRepeat.weekly,
+      RepeatRule.monthly => NotificationRepeat.monthly,
+      RepeatRule.none || RepeatRule.custom => NotificationRepeat.none,
+    };
   }
 }
 

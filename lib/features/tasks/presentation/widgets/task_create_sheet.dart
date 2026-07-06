@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:evoly/features/reminders/presentation/task_reminder_picker.dart';
+import 'package:evoly/shared/ui/bottom_sheets/bottom_sheet_form_layout.dart';
 import 'package:evoly/shared/ui/bottom_sheets/bottom_sheet_focus.dart';
-import 'package:evoly/shared/ui/bottom_sheets/responsive_bottom_sheet_body.dart';
-import 'package:evoly/shared/ui/tokens/app_spacing.dart';
+import 'package:evoly/shared/ui/components/app_components.dart';
 
 class TaskCreateSheet extends StatefulWidget {
   const TaskCreateSheet({
@@ -9,7 +10,11 @@ class TaskCreateSheet extends StatefulWidget {
     super.key,
   });
 
-  final Future<void> Function(String title, int estimatedMinutes) onCreate;
+  final Future<void> Function(
+    String title,
+    int estimatedMinutes,
+    TaskReminderSelection reminder,
+  ) onCreate;
 
   @override
   State<TaskCreateSheet> createState() => _TaskCreateSheetState();
@@ -19,6 +24,7 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   late final TextEditingController _titleController;
   late final TextEditingController _minutesController;
   late final FocusNode _titleFocusNode;
+  var _selectedReminder = TaskReminderSelection.none;
   var _saving = false;
 
   @override
@@ -40,37 +46,43 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return ResponsiveBottomSheetBody(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text('新增子任务', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: AppSpacing.md),
-          TextField(
+    return BottomSheetFormLayout(
+      title: '新增子任务',
+      footer: FilledButton.icon(
+        onPressed: _saving ? null : _create,
+        icon: const Icon(Icons.add_rounded),
+        label: Text(_saving ? '添加中...' : '添加'),
+      ),
+      children: [
+        AppField(
+          label: '任务名称',
+          isRequired: true,
+          child: TextField(
             controller: _titleController,
             focusNode: _titleFocusNode,
             decoration: const InputDecoration(
-              labelText: '任务名称',
               hintText: '例如：完成第一章练习',
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
-          TextField(
+        ),
+        AppField(
+          label: '预计耗时（分钟）',
+          child: TextField(
             controller: _minutesController,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: '预计耗时（分钟）',
-            ),
+            decoration: const InputDecoration(),
           ),
-          const SizedBox(height: AppSpacing.md),
-          FilledButton.icon(
-            onPressed: _saving ? null : _create,
-            icon: const Icon(Icons.add_rounded),
-            label: Text(_saving ? '添加中...' : '添加'),
+        ),
+        AppField(
+          label: '提醒',
+          child: TaskReminderPicker(
+            selection: _selectedReminder,
+            onChanged: (value) {
+              setState(() => _selectedReminder = value);
+            },
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -82,7 +94,11 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
 
     setState(() => _saving = true);
     final estimatedMinutes = int.tryParse(_minutesController.text.trim()) ?? 30;
-    await widget.onCreate(title, estimatedMinutes.clamp(1, 1440));
+    await widget.onCreate(
+      title,
+      estimatedMinutes.clamp(1, 1440),
+      _selectedReminder,
+    );
     if (mounted) {
       Navigator.pop(context, true);
     }

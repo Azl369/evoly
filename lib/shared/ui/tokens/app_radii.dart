@@ -4,4 +4,9 @@ class AppRadii {
   static const lg = 20.0;
   static const xl = 28.0;
   static const pill = 999.0;
+
+  static const inner = sm;
+  static const element = md;
+  static const container = md;
+  static const page = xl;
 }

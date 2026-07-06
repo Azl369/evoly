@@ -1,5 +1,12 @@
 import 'dart:io';
 
+enum NotificationRepeat {
+  none,
+  daily,
+  weekly,
+  monthly,
+}
+
 abstract class NotificationService {
   Future<void> initialize();
 
@@ -14,6 +21,7 @@ abstract class NotificationService {
     required String title,
     required String body,
     required DateTime scheduledAt,
+    NotificationRepeat repeat = NotificationRepeat.none,
   });
 
   Future<void> cancel(String id);
@@ -38,6 +46,7 @@ class NoopNotificationService implements NotificationService {
     required String title,
     required String body,
     required DateTime scheduledAt,
+    NotificationRepeat repeat = NotificationRepeat.none,
   }) async {}
 
   @override
@@ -107,6 +116,7 @@ class WindowsToastNotificationService implements NotificationService {
     required String title,
     required String body,
     required DateTime scheduledAt,
+    NotificationRepeat repeat = NotificationRepeat.none,
   }) async {
     if (scheduledAt.isAfter(DateTime.now())) {
       return;

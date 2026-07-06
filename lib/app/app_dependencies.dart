@@ -172,8 +172,10 @@ class AppDependencies extends StatelessWidget {
           ),
         ),
         Provider<TaskReminderService>(
-          create: (context) =>
-              TaskReminderService(context.read<ReminderRepository>()),
+          create: (context) => TaskReminderService(
+            context.read<ReminderRepository>(),
+            notificationService: context.read<NotificationService>(),
+          ),
         ),
         Provider<CompactReminderService>(
           create: (context) => CompactReminderService(

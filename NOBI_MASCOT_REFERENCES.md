@@ -2,6 +2,8 @@
 
 > 本轮只做 Nobi 的角色方向参考，不替换 UI、不接入代码。所有稿件均为原创 SVG 草稿，位于 `design/mascot/nobi/`。
 
+> 2026-07-05 更新：当前 Evoly 已转向 HUD 玻璃视觉语言，新的推荐方向请看 `NOBI_HUD_MASCOT_REDESIGN.md`。本文件保留为早期探索参考。
+
 ---
 
 ## 角色定位

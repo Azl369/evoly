@@ -61,7 +61,14 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     expect(find.text('今日计划'), findsOneWidget);
+    expect(find.text('今日进度'), findsOneWidget);
+    expect(find.text('完成率'), findsOneWidget);
     expect(find.text('Evoly Coach 今日建议'), findsOneWidget);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -320));
+    await tester.pump();
+
+    expect(find.text('今日任务'), findsOneWidget);
   });
 
   testWidgets('keeps only coach top 3 after confirmation', (tester) async {
@@ -360,6 +367,7 @@ class _FakeNotificationService implements NotificationService {
     required String title,
     required String body,
     required DateTime scheduledAt,
+    NotificationRepeat repeat = NotificationRepeat.none,
   }) async {}
 
   @override

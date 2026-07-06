@@ -6,6 +6,17 @@ class EvolyDesignTokens extends ThemeExtension<EvolyDesignTokens> {
   const EvolyDesignTokens({
     required this.pageBackground,
     required this.backgroundGradient,
+    required this.bodyBackground,
+    required this.cardSurface,
+    required this.popoverSurface,
+    required this.surfaceMuted,
+    required this.borderSubtle,
+    required this.borderEmphasized,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.shadowLow,
+    required this.shadowMedium,
+    required this.shadowHigh,
     required this.surface,
     required this.surfaceSubtle,
     required this.surfaceRaised,
@@ -35,6 +46,17 @@ class EvolyDesignTokens extends ThemeExtension<EvolyDesignTokens> {
 
   final Color pageBackground;
   final Gradient backgroundGradient;
+  final Color bodyBackground;
+  final Color cardSurface;
+  final Color popoverSurface;
+  final Color surfaceMuted;
+  final Color borderSubtle;
+  final Color borderEmphasized;
+  final Color textPrimary;
+  final Color textSecondary;
+  final List<BoxShadow> shadowLow;
+  final List<BoxShadow> shadowMedium;
+  final List<BoxShadow> shadowHigh;
   final Color surface;
   final Color surfaceSubtle;
   final Color surfaceRaised;
@@ -123,10 +145,42 @@ class EvolyDesignTokens extends ThemeExtension<EvolyDesignTokens> {
     final outlineSubtle = isDark
         ? Colors.white.withValues(alpha: 0.11)
         : const Color(0xFF5E7A91).withValues(alpha: 0.18);
+    final shadowLow = [
+      BoxShadow(
+        color: glassShadow.withValues(alpha: isDark ? 0.18 : 0.06),
+        blurRadius: 10,
+        offset: const Offset(0, 4),
+      ),
+    ];
+    final shadowMedium = [
+      BoxShadow(
+        color: glassShadow.withValues(alpha: isDark ? 0.26 : 0.10),
+        blurRadius: 18,
+        offset: const Offset(0, 10),
+      ),
+    ];
+    final shadowHigh = [
+      BoxShadow(
+        color: glassShadow.withValues(alpha: isDark ? 0.34 : 0.16),
+        blurRadius: 28,
+        offset: const Offset(0, 16),
+      ),
+    ];
 
     return EvolyDesignTokens(
       pageBackground: pageBackground,
       backgroundGradient: backgroundGradient,
+      bodyBackground: pageBackground,
+      cardSurface: glassSurfaceRaised,
+      popoverSurface: glassSurfaceRaised,
+      surfaceMuted: glassSurfaceSubtle,
+      borderSubtle: outlineSubtle,
+      borderEmphasized: glassBorderStrong,
+      textPrimary: colorScheme.onSurface,
+      textSecondary: colorScheme.onSurfaceVariant,
+      shadowLow: shadowLow,
+      shadowMedium: shadowMedium,
+      shadowHigh: shadowHigh,
       surface: glassSurface,
       surfaceSubtle: glassSurfaceSubtle,
       surfaceRaised: glassSurfaceRaised,
@@ -167,6 +221,17 @@ class EvolyDesignTokens extends ThemeExtension<EvolyDesignTokens> {
   EvolyDesignTokens copyWith({
     Color? pageBackground,
     Gradient? backgroundGradient,
+    Color? bodyBackground,
+    Color? cardSurface,
+    Color? popoverSurface,
+    Color? surfaceMuted,
+    Color? borderSubtle,
+    Color? borderEmphasized,
+    Color? textPrimary,
+    Color? textSecondary,
+    List<BoxShadow>? shadowLow,
+    List<BoxShadow>? shadowMedium,
+    List<BoxShadow>? shadowHigh,
     Color? surface,
     Color? surfaceSubtle,
     Color? surfaceRaised,
@@ -196,6 +261,17 @@ class EvolyDesignTokens extends ThemeExtension<EvolyDesignTokens> {
     return EvolyDesignTokens(
       pageBackground: pageBackground ?? this.pageBackground,
       backgroundGradient: backgroundGradient ?? this.backgroundGradient,
+      bodyBackground: bodyBackground ?? this.bodyBackground,
+      cardSurface: cardSurface ?? this.cardSurface,
+      popoverSurface: popoverSurface ?? this.popoverSurface,
+      surfaceMuted: surfaceMuted ?? this.surfaceMuted,
+      borderSubtle: borderSubtle ?? this.borderSubtle,
+      borderEmphasized: borderEmphasized ?? this.borderEmphasized,
+      textPrimary: textPrimary ?? this.textPrimary,
+      textSecondary: textSecondary ?? this.textSecondary,
+      shadowLow: shadowLow ?? this.shadowLow,
+      shadowMedium: shadowMedium ?? this.shadowMedium,
+      shadowHigh: shadowHigh ?? this.shadowHigh,
       surface: surface ?? this.surface,
       surfaceSubtle: surfaceSubtle ?? this.surfaceSubtle,
       surfaceRaised: surfaceRaised ?? this.surfaceRaised,
@@ -237,6 +313,22 @@ class EvolyDesignTokens extends ThemeExtension<EvolyDesignTokens> {
       pageBackground: Color.lerp(pageBackground, other.pageBackground, t)!,
       backgroundGradient:
           Gradient.lerp(backgroundGradient, other.backgroundGradient, t)!,
+      bodyBackground: Color.lerp(bodyBackground, other.bodyBackground, t)!,
+      cardSurface: Color.lerp(cardSurface, other.cardSurface, t)!,
+      popoverSurface: Color.lerp(popoverSurface, other.popoverSurface, t)!,
+      surfaceMuted: Color.lerp(surfaceMuted, other.surfaceMuted, t)!,
+      borderSubtle: Color.lerp(borderSubtle, other.borderSubtle, t)!,
+      borderEmphasized:
+          Color.lerp(borderEmphasized, other.borderEmphasized, t)!,
+      textPrimary: Color.lerp(textPrimary, other.textPrimary, t)!,
+      textSecondary: Color.lerp(textSecondary, other.textSecondary, t)!,
+      shadowLow: BoxShadow.lerpList(shadowLow, other.shadowLow, t)!,
+      shadowMedium: BoxShadow.lerpList(
+        shadowMedium,
+        other.shadowMedium,
+        t,
+      )!,
+      shadowHigh: BoxShadow.lerpList(shadowHigh, other.shadowHigh, t)!,
       surface: Color.lerp(surface, other.surface, t)!,
       surfaceSubtle: Color.lerp(surfaceSubtle, other.surfaceSubtle, t)!,
       surfaceRaised: Color.lerp(surfaceRaised, other.surfaceRaised, t)!,

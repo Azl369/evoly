@@ -30,6 +30,38 @@ void main() {
     expect(notificationService.shownIds, isEmpty);
     expect(reminderRepository.firedIds, isEmpty);
   });
+
+  test('moves weekly reminders to the next occurrence after notifying',
+      () async {
+    final now = DateTime(2026, 7, 8, 9);
+    final reminderRepository = _FakeReminderRepository([
+      _reminder(
+        'weekly-reminder',
+        'task-1',
+        DateTime(2026, 7, 1, 8),
+        repeatRule: RepeatRule.weekly,
+      ),
+    ]);
+    final notificationService = _FakeNotificationService();
+    final inbox = ReminderInbox(
+      reminderRepository: reminderRepository,
+      taskRepository: _FakeTaskRepository([
+        _task('task-1', '每周推进一次的任务', now),
+      ]),
+      notificationService: notificationService,
+    );
+
+    final messages = await inbox.collectDueMessages(now);
+
+    expect(messages.single.title, '每周推进一次的任务');
+    expect(reminderRepository.firedIds, isEmpty);
+    expect(reminderRepository.savedReminders.single.remindAt,
+        DateTime(2026, 7, 15, 8));
+    expect(
+        reminderRepository.savedReminders.single.repeatRule, RepeatRule.weekly);
+    expect(
+        notificationService.scheduled.single.repeat, NotificationRepeat.weekly);
+  });
 }
 
 TaskItem _task(String id, String title, DateTime now) {
@@ -45,13 +77,18 @@ TaskItem _task(String id, String title, DateTime now) {
   );
 }
 
-Reminder _reminder(String id, String taskId, DateTime remindAt) {
+Reminder _reminder(
+  String id,
+  String taskId,
+  DateTime remindAt, {
+  RepeatRule repeatRule = RepeatRule.none,
+}) {
   return Reminder(
     id: id,
     targetType: ReminderTargetType.task,
     targetId: taskId,
     remindAt: remindAt,
-    repeatRule: RepeatRule.none,
+    repeatRule: repeatRule,
     enabled: true,
     createdAt: remindAt,
     updatedAt: remindAt,
@@ -88,6 +125,7 @@ class _FakeReminderRepository implements ReminderRepository {
 
   final List<Reminder> reminders;
   final List<String> firedIds = [];
+  final List<Reminder> savedReminders = [];
 
   @override
   Future<void> disable(String id) async {}
@@ -119,11 +157,20 @@ class _FakeReminderRepository implements ReminderRepository {
   }
 
   @override
-  Future<void> save(Reminder reminder) async {}
+  Future<void> save(Reminder reminder) async {
+    savedReminders.add(reminder);
+    final index = reminders.indexWhere((item) => item.id == reminder.id);
+    if (index == -1) {
+      reminders.add(reminder);
+    } else {
+      reminders[index] = reminder;
+    }
+  }
 }
 
 class _FakeNotificationService implements NotificationService {
   final List<String> shownIds = [];
+  final List<_ScheduledNotification> scheduled = [];
 
   @override
   Future<void> cancel(String id) async {}
@@ -137,7 +184,14 @@ class _FakeNotificationService implements NotificationService {
     required String title,
     required String body,
     required DateTime scheduledAt,
-  }) async {}
+    NotificationRepeat repeat = NotificationRepeat.none,
+  }) async {
+    scheduled.add(
+      _ScheduledNotification(
+        repeat: repeat,
+      ),
+    );
+  }
 
   @override
   Future<void> showNow({
@@ -147,4 +201,12 @@ class _FakeNotificationService implements NotificationService {
   }) async {
     shownIds.add(id);
   }
+}
+
+class _ScheduledNotification {
+  const _ScheduledNotification({
+    required this.repeat,
+  });
+
+  final NotificationRepeat repeat;
 }

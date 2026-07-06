@@ -6,6 +6,7 @@ import 'package:evoly/app/data_refresh_listener.dart';
 import 'package:evoly/features/stats/data/stats_repository.dart';
 import 'package:evoly/shared/ui/components/animated_progress_bar.dart';
 import 'package:evoly/shared/ui/components/app_components.dart';
+import 'package:evoly/shared/ui/tokens/app_radii.dart';
 import 'package:evoly/shared/ui/tokens/app_spacing.dart';
 import 'package:evoly/shared/ui/tokens/evoly_design_tokens.dart';
 import 'package:evoly/shared/widgets/empty_state.dart';
@@ -45,16 +46,15 @@ class _StatsPageState extends State<StatsPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('统计'),
-        actions: [
-          IconButton(
-            onPressed: _loading ? null : _loadStats,
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-        ],
-      ),
+    return AppPageScaffold(
+      title: '统计',
+      actions: [
+        IconButton(
+          tooltip: '刷新统计',
+          onPressed: _loading ? null : _loadStats,
+          icon: const Icon(Icons.refresh_rounded),
+        ),
+      ],
       body: _buildBody(),
       bottomNavigationBar: widget.showBottomNavigationBar
           ? const EvolyNavigationBar(selectedIndex: 3)
@@ -95,85 +95,91 @@ class _StatsPageState extends State<StatsPage>
           AppSpacing.xxl,
         ),
         children: [
-          const AppSectionHeader(
+          AppSection(
             title: '今日概览',
             padding: EdgeInsets.zero,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          _ExpandableMetricCard(
-            title: '今日完成',
-            value: '${snapshot.todayCompletedTasks}',
-            subtitle: '点击查看今日完成项目',
-            icon: Icons.check_circle_outline,
-            expanded: _todayCompletedExpanded,
-            items: snapshot.todayCompletedItems,
-            emptyMessage: '今天还没有完成项目。',
-            listIcon: Icons.done_rounded,
-            lineThrough: true,
-            onTap: () {
-              setState(() {
-                _todayCompletedExpanded = !_todayCompletedExpanded;
-              });
-            },
-          ),
-          _ExpandableMetricCard(
-            title: '今日延期',
-            value: '${snapshot.todayPostponedTasks}',
-            subtitle: '点击查看今日延期项目',
-            icon: Icons.schedule_outlined,
-            expanded: _todayPostponedExpanded,
-            items: snapshot.todayPostponedItems,
-            emptyMessage: '今天还没有延期项目。',
-            listIcon: Icons.schedule_rounded,
-            lineThrough: false,
-            onTap: () {
-              setState(() {
-                _todayPostponedExpanded = !_todayPostponedExpanded;
-              });
-            },
+            child: Column(
+              children: [
+                _ExpandableMetricCard(
+                  title: '今日完成',
+                  value: '${snapshot.todayCompletedTasks}',
+                  subtitle: '点击查看今日完成项目',
+                  icon: Icons.check_circle_outline,
+                  expanded: _todayCompletedExpanded,
+                  items: snapshot.todayCompletedItems,
+                  emptyMessage: '今天还没有完成项目。',
+                  listIcon: Icons.done_rounded,
+                  lineThrough: true,
+                  onTap: () {
+                    setState(() {
+                      _todayCompletedExpanded = !_todayCompletedExpanded;
+                    });
+                  },
+                ),
+                _ExpandableMetricCard(
+                  title: '今日延期',
+                  value: '${snapshot.todayPostponedTasks}',
+                  subtitle: '点击查看今日延期项目',
+                  icon: Icons.schedule_outlined,
+                  expanded: _todayPostponedExpanded,
+                  items: snapshot.todayPostponedItems,
+                  emptyMessage: '今天还没有延期项目。',
+                  listIcon: Icons.schedule_rounded,
+                  lineThrough: false,
+                  onTap: () {
+                    setState(() {
+                      _todayPostponedExpanded = !_todayPostponedExpanded;
+                    });
+                  },
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
-          const AppSectionHeader(
+          AppSection(
             title: '本周概览',
             padding: EdgeInsets.zero,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          _ExpandableMetricCard(
-            title: '本周完成',
-            value: '${snapshot.weekCompletedTasks}',
-            subtitle: '点击查看本周完成项目',
-            icon: Icons.task_alt_outlined,
-            expanded: _weekCompletedExpanded,
-            items: snapshot.weekCompletedItems,
-            emptyMessage: '本周还没有完成项目。',
-            listIcon: Icons.done_rounded,
-            lineThrough: true,
-            onTap: () {
-              setState(() {
-                _weekCompletedExpanded = !_weekCompletedExpanded;
-              });
-            },
-          ),
-          _ExpandableMetricCard(
-            title: '本周延期',
-            value: '${snapshot.weekPostponedTasks}',
-            subtitle: '点击查看本周延期项目',
-            icon: Icons.pending_actions_outlined,
-            expanded: _weekPostponedExpanded,
-            items: snapshot.weekPostponedItems,
-            emptyMessage: '本周还没有延期项目。',
-            listIcon: Icons.schedule_rounded,
-            lineThrough: false,
-            onTap: () {
-              setState(() {
-                _weekPostponedExpanded = !_weekPostponedExpanded;
-              });
-            },
-          ),
-          _MetricCard(
-            title: '连续完成',
-            value: '${snapshot.streakDays} 天',
-            icon: Icons.local_fire_department_outlined,
+            child: Column(
+              children: [
+                _ExpandableMetricCard(
+                  title: '本周完成',
+                  value: '${snapshot.weekCompletedTasks}',
+                  subtitle: '点击查看本周完成项目',
+                  icon: Icons.task_alt_outlined,
+                  expanded: _weekCompletedExpanded,
+                  items: snapshot.weekCompletedItems,
+                  emptyMessage: '本周还没有完成项目。',
+                  listIcon: Icons.done_rounded,
+                  lineThrough: true,
+                  onTap: () {
+                    setState(() {
+                      _weekCompletedExpanded = !_weekCompletedExpanded;
+                    });
+                  },
+                ),
+                _ExpandableMetricCard(
+                  title: '本周延期',
+                  value: '${snapshot.weekPostponedTasks}',
+                  subtitle: '点击查看本周延期项目',
+                  icon: Icons.pending_actions_outlined,
+                  expanded: _weekPostponedExpanded,
+                  items: snapshot.weekPostponedItems,
+                  emptyMessage: '本周还没有延期项目。',
+                  listIcon: Icons.schedule_rounded,
+                  lineThrough: false,
+                  onTap: () {
+                    setState(() {
+                      _weekPostponedExpanded = !_weekPostponedExpanded;
+                    });
+                  },
+                ),
+                _MetricCard(
+                  title: '连续完成',
+                  value: '${snapshot.streakDays} 天',
+                  icon: Icons.local_fire_department_outlined,
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
           _CompletionChartCard(
@@ -186,22 +192,7 @@ class _StatsPageState extends State<StatsPage>
             },
           ),
           const SizedBox(height: AppSpacing.md),
-          AppSurfaceCard(
-            margin: EdgeInsets.zero,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('目标完成率', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: AppSpacing.sm),
-                AnimatedProgressBar(value: snapshot.goalCompletionRate),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  '${snapshot.completedGoals}/${snapshot.totalGoals} 个目标已完成',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
-          ),
+          _GoalCompletionCard(snapshot: snapshot),
         ],
       ),
     );
@@ -250,10 +241,97 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppMetricCard(
-      title: title,
-      value: value,
-      icon: icon,
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return AppSurface(
+      margin: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: Row(
+        children: [
+          _StatsIconBadge(icon: icon, color: colorScheme.primary),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(value, style: theme.textTheme.headlineSmall),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GoalCompletionCard extends StatelessWidget {
+  const _GoalCompletionCard({required this.snapshot});
+
+  final StatsSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return AppSurface(
+      margin: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _StatsIconBadge(
+                icon: Icons.flag_circle_outlined,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(
+                  '目标完成率',
+                  style: theme.textTheme.titleMedium,
+                ),
+              ),
+              AppMetaPill(
+                label: '${snapshot.completedGoals}/${snapshot.totalGoals} 个目标',
+                icon: Icons.flag_outlined,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          AnimatedProgressBar(value: snapshot.goalCompletionRate),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatsIconBadge extends StatelessWidget {
+  const _StatsIconBadge({
+    required this.icon,
+    required this.color,
+  });
+
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.13),
+        borderRadius: BorderRadius.circular(AppRadii.element),
+      ),
+      child: SizedBox.square(
+        dimension: 44,
+        child: Icon(icon, color: color, size: 22),
+      ),
     );
   }
 }
@@ -285,13 +363,14 @@ class _ExpandableMetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppSurfaceCard(
+    return AppSurface(
+      variant: expanded ? AppSurfaceVariant.selected : AppSurfaceVariant.raised,
+      onTap: onTap,
       padding: EdgeInsets.zero,
       margin: const EdgeInsets.only(bottom: AppSpacing.xs),
       child: Column(
         children: [
           ListTile(
-            onTap: onTap,
             leading: Icon(icon),
             title: Text(title),
             subtitle: Text(subtitle),
@@ -405,7 +484,7 @@ class _CompletionChartCard extends StatelessWidget {
         ),
     ];
 
-    return AppSurfaceCard(
+    return AppSurface(
       margin: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

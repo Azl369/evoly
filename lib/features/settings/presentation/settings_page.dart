@@ -32,56 +32,91 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final settings = context.watch<SettingsController>().settings;
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(title: const Text('设置')),
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: EvolyDesignTokens.of(context).backgroundGradient,
-        ),
-        child: ListView(
-          children: [
-            const SwitchListTile(
-              value: true,
-              onChanged: null,
-              title: Text('每日计划提醒'),
-              subtitle: Text('每天早上提醒今天要推进的目标'),
-            ),
-            const ListTile(
-              leading: Icon(Icons.notifications_outlined),
-              title: Text('默认提醒时间'),
-              subtitle: Text('08:30'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.palette_outlined),
-              title: const Text('主题'),
-              subtitle: Text(
-                '${settings.themeMode.label} · ${settings.themePreset.label}',
+    return AppPageScaffold(
+      title: '设置',
+      body: ListView(
+        padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+        children: [
+          const _SettingsGroup(
+            title: '提醒',
+            children: [
+              SwitchListTile(
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                ),
+                value: true,
+                onChanged: null,
+                title: Text('每日计划提醒'),
+                subtitle: Text('每天早上提醒今天要推进的目标'),
               ),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => _showThemeSheet(context),
-            ),
-            if (Platform.isWindows)
               ListTile(
-                leading: const Icon(Icons.desktop_windows_outlined),
-                title: const Text('Windows 桌面模式'),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                ),
+                leading: Icon(Icons.notifications_outlined),
+                title: Text('默认提醒时间'),
+                subtitle: Text('08:30'),
+              ),
+            ],
+          ),
+          _SettingsGroup(
+            title: '外观',
+            children: [
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                ),
+                leading: const Icon(Icons.palette_outlined),
+                title: const Text('主题'),
                 subtitle: Text(
-                  '${settings.windowsCloseBehavior.label} · '
-                  '${settings.windowsTrayClickBehavior.label}',
+                  '${settings.themeMode.label} · ${settings.themePreset.label}',
                 ),
                 trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => _showWindowsDesktopSheet(context),
+                onTap: () => _showThemeSheet(context),
               ),
-            const SyncAccountSection(),
-            if (kDebugMode)
-              ListTile(
-                leading: const Icon(Icons.science_outlined),
-                title: const Text('生成覆盖测试数据'),
-                subtitle: const Text('目标、任务、文档、提醒，各状态与长文本覆盖'),
-                onTap: () => _seedCoverageTestData(context),
-              ),
-          ],
-        ),
+            ],
+          ),
+          if (Platform.isWindows)
+            _SettingsGroup(
+              title: '桌面模式',
+              children: [
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                  ),
+                  leading: const Icon(Icons.desktop_windows_outlined),
+                  title: const Text('Windows 桌面模式'),
+                  subtitle: Text(
+                    '${settings.windowsCloseBehavior.label} · '
+                    '${settings.windowsTrayClickBehavior.label}',
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => _showWindowsDesktopSheet(context),
+                ),
+              ],
+            ),
+          const _SettingsGroup(
+            title: '账号与同步',
+            children: [
+              SyncAccountSection(),
+            ],
+          ),
+          if (kDebugMode)
+            _SettingsGroup(
+              title: '开发工具',
+              children: [
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                  ),
+                  leading: const Icon(Icons.science_outlined),
+                  title: const Text('生成覆盖测试数据'),
+                  subtitle: const Text('目标、任务、文档、提醒，各状态与长文本覆盖'),
+                  onTap: () => _seedCoverageTestData(context),
+                ),
+              ],
+            ),
+        ],
       ),
       bottomNavigationBar: showBottomNavigationBar
           ? const EvolyNavigationBar(selectedIndex: 4)
@@ -145,6 +180,63 @@ class SettingsPage extends StatelessWidget {
         SnackBar(content: Text('生成覆盖测试数据失败：$error')),
       );
     }
+  }
+}
+
+class _SettingsGroup extends StatelessWidget {
+  const _SettingsGroup({
+    required this.title,
+    required this.children,
+  });
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = EvolyDesignTokens.of(context);
+
+    return AppSection(
+      title: title,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      child: AppSurface(
+        variant: AppSurfaceVariant.raised,
+        padding: EdgeInsets.zero,
+        child: ListTileTheme.merge(
+          iconColor: tokens.textSecondary,
+          textColor: tokens.textPrimary,
+          child: Column(
+            children: [
+              for (var index = 0; index < children.length; index++) ...[
+                children[index],
+                if (index != children.length - 1) const _SettingsDivider(),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsDivider extends StatelessWidget {
+  const _SettingsDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = EvolyDesignTokens.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      child: Divider(
+        height: 1,
+        thickness: 1,
+        color: tokens.borderSubtle,
+      ),
+    );
   }
 }
 

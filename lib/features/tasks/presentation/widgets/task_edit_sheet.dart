@@ -5,7 +5,8 @@ import 'package:evoly/core/domain/priority.dart';
 import 'package:evoly/features/reminders/domain/reminder.dart';
 import 'package:evoly/features/reminders/presentation/task_reminder_picker.dart';
 import 'package:evoly/features/tasks/domain/task_item.dart';
-import 'package:evoly/shared/ui/bottom_sheets/responsive_bottom_sheet_body.dart';
+import 'package:evoly/shared/ui/bottom_sheets/bottom_sheet_form_layout.dart';
+import 'package:evoly/shared/ui/components/app_components.dart';
 import 'package:evoly/shared/ui/tokens/app_radii.dart';
 import 'package:evoly/shared/ui/tokens/app_spacing.dart';
 import 'package:evoly/shared/ui/tokens/evoly_design_tokens.dart';
@@ -22,7 +23,10 @@ class TaskEditSheet extends StatefulWidget {
   final String title;
   final TaskItem task;
   final Reminder? reminder;
-  final Future<void> Function(TaskItem updatedTask, DateTime? remindAt) onSave;
+  final Future<void> Function(
+    TaskItem updatedTask,
+    TaskReminderSelection reminder,
+  ) onSave;
 
   @override
   State<TaskEditSheet> createState() => _TaskEditSheetState();
@@ -37,7 +41,7 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
   late Priority _selectedPriority;
   late TaskStatus _selectedStatus;
   DateTime? _selectedDueDateTime;
-  DateTime? _selectedRemindAt;
+  late TaskReminderSelection _selectedReminder;
   Timer? _saveDebounce;
   var _saving = false;
   var _hasSavedChanges = false;
@@ -60,8 +64,8 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
     _selectedPriority = _task.priority;
     _selectedStatus = _task.status;
     _selectedDueDateTime = _task.dueDateTime;
-    _selectedRemindAt = widget.reminder?.remindAt;
-    _lastSavedSignature = _signatureFor(_task, _selectedRemindAt);
+    _selectedReminder = TaskReminderSelection.fromReminder(widget.reminder);
+    _lastSavedSignature = _signatureFor(_task, _selectedReminder);
     _titleController.addListener(_scheduleSave);
     _descriptionController.addListener(_scheduleSave);
     _minutesController.addListener(_scheduleSave);
@@ -89,67 +93,67 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
         }
         await _close();
       },
-      child: ResponsiveBottomSheetBody(
+      child: BottomSheetFormLayout(
         minHeight: 320,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    widget.title,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ),
-                _AutoSaveStatus(
-                  saving: _saving,
-                  errorMessage: _saveError,
-                  hasSavedChanges: _hasSavedChanges,
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.compact),
-            TextField(
+        headerSpacing: AppSpacing.compact,
+        title: widget.title,
+        trailing: _AutoSaveStatus(
+          saving: _saving,
+          errorMessage: _saveError,
+          hasSavedChanges: _hasSavedChanges,
+        ),
+        footer: FilledButton.icon(
+          onPressed: _close,
+          icon: const Icon(Icons.check_rounded),
+          label: const Text('完成'),
+        ),
+        children: [
+          AppField(
+            label: '任务名称',
+            isRequired: true,
+            child: TextField(
               controller: _titleController,
-              decoration: const InputDecoration(labelText: '任务名称'),
+              decoration: const InputDecoration(),
             ),
-            const SizedBox(height: AppSpacing.compact),
-            TextField(
+          ),
+          AppField(
+            label: '任务说明',
+            child: TextField(
               controller: _descriptionController,
               minLines: 2,
               maxLines: 4,
-              decoration: const InputDecoration(labelText: '任务说明'),
+              decoration: const InputDecoration(),
             ),
-            const SizedBox(height: AppSpacing.compact),
-            _TaskOptionGroup<Priority>(
-              label: '优先级',
-              values: const [Priority.high, Priority.medium, Priority.low],
-              value: _selectedPriority,
-              labelBuilder: (priority) => priority.label,
-              iconBuilder: (_) => Icons.flag_rounded,
-              colorBuilder: _priorityColor,
-              onChanged: _changePriority,
-            ),
-            const SizedBox(height: AppSpacing.compact),
-            _TaskOptionGroup<TaskStatus>(
-              label: '状态',
-              values: TaskStatus.values,
-              value: _selectedStatus,
-              labelBuilder: (status) => status.label,
-              iconBuilder: _statusIcon,
-              colorBuilder: _statusColor,
-              onChanged: _changeStatus,
-            ),
-            const SizedBox(height: AppSpacing.compact),
-            TextField(
+          ),
+          _TaskOptionGroup<Priority>(
+            label: '优先级',
+            values: const [Priority.high, Priority.medium, Priority.low],
+            value: _selectedPriority,
+            labelBuilder: (priority) => priority.label,
+            iconBuilder: (_) => Icons.flag_rounded,
+            colorBuilder: _priorityColor,
+            onChanged: _changePriority,
+          ),
+          _TaskOptionGroup<TaskStatus>(
+            label: '状态',
+            values: TaskStatus.values,
+            value: _selectedStatus,
+            labelBuilder: (status) => status.label,
+            iconBuilder: _statusIcon,
+            colorBuilder: _statusColor,
+            onChanged: _changeStatus,
+          ),
+          AppField(
+            label: '预计耗时（分钟）',
+            child: TextField(
               controller: _minutesController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: '预计耗时（分钟）'),
+              decoration: const InputDecoration(),
             ),
-            const SizedBox(height: AppSpacing.compact),
-            SegmentedButton<_DueOption>(
+          ),
+          AppField(
+            label: '截止时间',
+            child: SegmentedButton<_DueOption>(
               segments: const [
                 ButtonSegment(value: _DueOption.today, label: Text('今天')),
                 ButtonSegment(
@@ -184,24 +188,18 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
                 _scheduleSave();
               },
             ),
-            const SizedBox(height: AppSpacing.compact),
-            Text('提醒', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: AppSpacing.sm),
-            TaskReminderPicker(
-              selectedRemindAt: _selectedRemindAt,
+          ),
+          AppField(
+            label: '提醒',
+            child: TaskReminderPicker(
+              selection: _selectedReminder,
               onChanged: (value) {
-                setState(() => _selectedRemindAt = value);
+                setState(() => _selectedReminder = value);
                 _scheduleSave();
               },
             ),
-            const SizedBox(height: AppSpacing.compact),
-            FilledButton.icon(
-              onPressed: _close,
-              icon: const Icon(Icons.check_rounded),
-              label: const Text('完成'),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -247,14 +245,14 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
     }
 
     final updatedTask = _buildUpdatedTask(title);
-    final signature = _signatureFor(updatedTask, _selectedRemindAt);
+    final signature = _signatureFor(updatedTask, _selectedReminder);
     if (signature == _lastSavedSignature) {
       return;
     }
 
     setState(() => _saving = true);
     try {
-      await widget.onSave(updatedTask, _selectedRemindAt);
+      await widget.onSave(updatedTask, _selectedReminder);
       if (!mounted) {
         return;
       }
@@ -313,7 +311,7 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
     Navigator.pop(context, _hasSavedChanges);
   }
 
-  String _signatureFor(TaskItem task, DateTime? remindAt) {
+  String _signatureFor(TaskItem task, TaskReminderSelection reminder) {
     return [
       task.title,
       task.description,
@@ -322,7 +320,8 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
       task.estimatedMinutes,
       task.dueDateTime?.millisecondsSinceEpoch,
       task.completedAt?.millisecondsSinceEpoch,
-      remindAt?.millisecondsSinceEpoch,
+      reminder.remindAt?.millisecondsSinceEpoch,
+      reminder.repeatRule.name,
     ].join('|');
   }
 
@@ -380,29 +379,22 @@ class _TaskOptionGroup<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FocusTraversalGroup(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelLarge,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.xs,
-            children: [
-              for (final option in values)
-                _TaskOptionChip<T>(
-                  label: labelBuilder(option),
-                  icon: iconBuilder(option),
-                  color: colorBuilder(context, option),
-                  selected: option == value,
-                  onSelected: () => onChanged(option),
-                ),
-            ],
-          ),
-        ],
+      child: AppField(
+        label: label,
+        child: Wrap(
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.xs,
+          children: [
+            for (final option in values)
+              _TaskOptionChip<T>(
+                label: labelBuilder(option),
+                icon: iconBuilder(option),
+                color: colorBuilder(context, option),
+                selected: option == value,
+                onSelected: () => onChanged(option),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -432,12 +424,12 @@ class _TaskOptionChip<T> extends StatelessWidget {
     final backgroundColor = selected
         ? Color.alphaBlend(
             color.withValues(alpha: selectedAlpha),
-            tokens.surfaceRaised,
+            tokens.cardSurface,
           )
-        : tokens.surfaceSubtle;
+        : tokens.surfaceMuted;
     final foregroundColor = selected ? color : colorScheme.onSurface;
     final borderColor =
-        selected ? color.withValues(alpha: 0.44) : tokens.outlineSubtle;
+        selected ? color.withValues(alpha: 0.44) : tokens.borderSubtle;
 
     return ConstrainedBox(
       constraints: const BoxConstraints(minWidth: 72, minHeight: 36),

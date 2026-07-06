@@ -12,11 +12,16 @@ class TaskCard extends StatelessWidget {
     super.key,
     this.onComplete,
     this.trailing,
+    this.margin = const EdgeInsets.symmetric(
+      horizontal: AppSpacing.md,
+      vertical: AppSpacing.xs,
+    ),
   });
 
   final TaskItem task;
   final VoidCallback? onComplete;
   final Widget? trailing;
+  final EdgeInsetsGeometry margin;
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +42,7 @@ class TaskCard extends StatelessWidget {
     return AppListCard(
       selected: task.isCompleted,
       compact: true,
+      margin: margin,
       leading: AnimatedSwitcher(
         duration: MotionTokens.fast,
         child: task.isCompleted

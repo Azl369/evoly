@@ -97,17 +97,16 @@ class _TodayPageState extends State<TodayPage>
     final progress = _tasks.isEmpty ? 0.0 : completedCount / _tasks.length;
     final useDesktopLayout = MediaQuery.sizeOf(context).width >= 900;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('今日计划'),
-        actions: [
-          if (!useDesktopLayout)
-            IconButton(
-              onPressed: () => Navigator.pushNamed(context, AppRoutes.settings),
-              icon: const Icon(Icons.settings_outlined),
-            ),
-        ],
-      ),
+    return AppPageScaffold(
+      title: '今日计划',
+      actions: [
+        if (!useDesktopLayout)
+          IconButton(
+            tooltip: '设置',
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.settings),
+            icon: const Icon(Icons.settings_outlined),
+          ),
+      ],
       body: _buildBody(progress),
       bottomNavigationBar: widget.showBottomNavigationBar
           ? const EvolyNavigationBar(selectedIndex: 0)
@@ -151,10 +150,14 @@ class _TodayPageState extends State<TodayPage>
         physics: const AlwaysScrollableScrollPhysics(),
         scrollCacheExtent: const ScrollCacheExtent.pixels(720),
         padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-        itemCount: _tasks.isEmpty ? 2 : listEntries.length + 1,
+        itemCount: _tasks.isEmpty ? 3 : listEntries.length + 2,
         itemBuilder: (context, index) {
           if (index == 0) {
             return _buildTodayOverview(progress);
+          }
+
+          if (index == 1) {
+            return _buildTaskSectionHeader();
           }
 
           if (_tasks.isEmpty) {
@@ -168,7 +171,7 @@ class _TodayPageState extends State<TodayPage>
             );
           }
 
-          return _buildTodayListEntry(listEntries[index - 1]);
+          return _buildTodayListEntry(listEntries[index - 2]);
         },
       ),
     );
@@ -214,21 +217,14 @@ class _TodayPageState extends State<TodayPage>
         physics: const AlwaysScrollableScrollPhysics(),
         scrollCacheExtent: const ScrollCacheExtent.pixels(720),
         padding: EdgeInsets.zero,
-        itemCount: _tasks.isEmpty ? 2 : listEntries.length + 1,
+        itemCount: _tasks.isEmpty ? 3 : listEntries.length + 2,
         itemBuilder: (context, index) {
           if (index == 0) {
-            return const Padding(
-              padding: EdgeInsets.fromLTRB(
-                AppSpacing.md,
-                AppSpacing.xs,
-                AppSpacing.md,
-                AppSpacing.sm,
-              ),
-              child: AppSectionHeader(
-                title: '今日任务',
-                padding: EdgeInsets.zero,
-              ),
-            );
+            return _buildTaskSectionHeader(compact: true);
+          }
+
+          if (index == 1) {
+            return const SizedBox(height: AppSpacing.xs);
           }
 
           if (_tasks.isEmpty) {
@@ -243,21 +239,116 @@ class _TodayPageState extends State<TodayPage>
             );
           }
 
-          return _buildTodayListEntry(listEntries[index - 1]);
+          return _buildTodayListEntry(listEntries[index - 2]);
         },
       ),
     );
   }
 
+  Widget _buildTaskSectionHeader({bool compact = false}) {
+    final completedCount = _tasks.where((task) => task.isCompleted).length;
+    final pendingCount = _tasks.length - completedCount;
+
+    return AppSectionHeader(
+      title: '今日任务',
+      subtitle: _tasks.isEmpty
+          ? '今天没有排定任务'
+          : '$pendingCount 待推进 · $completedCount 已完成',
+      trailing: _tasks.isEmpty
+          ? null
+          : AppMetaPill(
+              label: '${_tasks.length} 项',
+              icon: Icons.task_alt_outlined,
+            ),
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        compact ? AppSpacing.xs : AppSpacing.sm,
+        AppSpacing.md,
+        compact ? AppSpacing.xs : AppSpacing.sm,
+      ),
+    );
+  }
+
   Widget _buildTodayOverview(double progress) {
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.md),
+    final textTheme = Theme.of(context).textTheme;
+    final tokens = EvolyDesignTokens.of(context);
+    final completedCount = _tasks.where((task) => task.isCompleted).length;
+    final pendingTasks = _tasks.where((task) => !task.isCompleted).toList();
+    final pendingMinutes = pendingTasks.fold<int>(
+      0,
+      (sum, task) => sum + task.estimatedMinutes,
+    );
+    final progressPercent = (progress * 100).round();
+
+    return AppSection(
+      title: '今日进度',
+      subtitle: _tasks.isEmpty
+          ? '还没有需要推进的任务'
+          : '$completedCount / ${_tasks.length} 已完成',
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.sm,
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('今日进度', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: AppSpacing.sm),
-          AnimatedProgressBar(value: progress),
+          AppSurface(
+            variant: AppSurfaceVariant.raised,
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '完成率',
+                        style: textTheme.labelLarge?.copyWith(
+                          color: tokens.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '$progressPercent%',
+                      style: textTheme.titleSmall?.copyWith(
+                        color: tokens.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                AnimatedProgressBar(value: progress),
+                const SizedBox(height: AppSpacing.md),
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xs,
+                  children: [
+                    AppMetaPill(
+                      label: '${pendingTasks.length} 待推进',
+                      icon: Icons.radio_button_unchecked_rounded,
+                      color: tokens.statusInfo,
+                      selected: pendingTasks.isNotEmpty,
+                    ),
+                    AppMetaPill(
+                      label: '$completedCount 已完成',
+                      icon: Icons.check_circle_outline_rounded,
+                      color: tokens.statusSuccess,
+                      selected: completedCount > 0,
+                    ),
+                    if (pendingMinutes > 0)
+                      AppMetaPill(
+                        label: '预计 $pendingMinutes 分钟',
+                        icon: Icons.timer_outlined,
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: AppSpacing.md),
           _CoachInsightCard(
             insight: _coachInsight,
@@ -742,11 +833,13 @@ class _TodayPageState extends State<TodayPage>
           title: '编辑任务',
           task: task,
           reminder: reminder,
-          onSave: (updatedTask, remindAt) async {
+          onSave: (updatedTask, reminder) async {
             await _updateTask(task, updatedTask);
             await reminderService.saveForTask(
               taskId: task.id,
-              remindAt: remindAt,
+              remindAt: reminder.remindAt,
+              repeatRule: reminder.repeatRule,
+              notificationBody: updatedTask.title,
             );
           },
         );
@@ -1099,110 +1192,100 @@ class _CoachInsightCard extends StatelessWidget {
     final insight = this.insight;
     final isDark = colorScheme.brightness == Brightness.dark;
     final accentColor = tokens.coachAccent;
-    final cardColor = Color.alphaBlend(
-      accentColor.withValues(alpha: isDark ? 0.055 : 0.030),
-      tokens.surfaceRaised,
-    );
-    final borderColor = tokens.outlineSubtle;
 
-    return AppSurfaceCard(
+    return AppSurface(
+      variant: AppSurfaceVariant.raised,
       margin: EdgeInsets.zero,
       padding: EdgeInsets.zero,
-      elevated: !isDark,
-      backgroundColor: cardColor,
-      borderColor: borderColor,
-      child: DecoratedBox(
-        decoration: const BoxDecoration(),
-        child: Stack(
-          children: [
-            Positioned(
-              top: 0,
-              bottom: 0,
-              left: 0,
-              width: 3,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: isDark ? 0.52 : 0.42),
-                ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: 0,
+            bottom: 0,
+            left: 0,
+            width: 3,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: isDark ? 0.52 : 0.42),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  InkWell(
-                    borderRadius: BorderRadius.circular(AppRadii.md),
-                    onTap: onToggleExpanded,
-                    child: Row(
-                      children: [
-                        DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: accentColor.withValues(
-                              alpha: isDark ? 0.18 : 0.12,
-                            ),
-                            borderRadius: BorderRadius.circular(AppRadii.md),
-                            border: Border.all(
-                              color: accentColor.withValues(alpha: 0.16),
-                            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                InkWell(
+                  borderRadius: BorderRadius.circular(AppRadii.md),
+                  onTap: onToggleExpanded,
+                  child: Row(
+                    children: [
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(
+                            alpha: isDark ? 0.18 : 0.12,
                           ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(7),
-                            child: Icon(
-                              Icons.psychology_alt_outlined,
-                              color: accentColor,
-                              size: 20,
-                            ),
+                          borderRadius: BorderRadius.circular(AppRadii.md),
+                          border: Border.all(
+                            color: accentColor.withValues(alpha: 0.16),
                           ),
                         ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: Text(
-                            'Evoly Coach 今日建议',
-                            style: textTheme.titleMedium?.copyWith(
-                              color: colorScheme.onSurface,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        AnimatedRotation(
-                          turns: expanded ? 0.5 : 0,
-                          duration: MotionTokens.fast,
-                          curve: MotionTokens.standard,
+                        child: Padding(
+                          padding: const EdgeInsets.all(7),
                           child: Icon(
-                            Icons.keyboard_arrow_down,
-                            color: colorScheme.onSurfaceVariant,
+                            Icons.psychology_alt_outlined,
+                            color: accentColor,
+                            size: 20,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          'Evoly Coach 今日建议',
+                          style: textTheme.titleMedium?.copyWith(
+                            color: colorScheme.onSurface,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      AnimatedRotation(
+                        turns: expanded ? 0.5 : 0,
+                        duration: MotionTokens.fast,
+                        curve: MotionTokens.standard,
+                        child: Icon(
+                          Icons.keyboard_arrow_down,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
-                  AnimatedSize(
-                    duration: MotionTokens.normal,
-                    curve: MotionTokens.standard,
-                    alignment: Alignment.topCenter,
-                    child: expanded
-                        ? Padding(
-                            padding: const EdgeInsets.only(top: AppSpacing.md),
-                            child: insight == null
-                                ? const _CoachLoadingContent()
-                                : _CoachInsightContent(
-                                    insight: insight,
-                                    onCreateFirstAction: onCreateFirstAction,
-                                    onOpenFirstTopTask: onOpenFirstTopTask,
-                                    onKeepOnlyTopTasks: onKeepOnlyTopTasks,
-                                    onOpenFirstDelayedGoal:
-                                        onOpenFirstDelayedGoal,
-                                    onReviewCompletedDay: onReviewCompletedDay,
-                                  ),
-                          )
-                        : const SizedBox.shrink(),
-                  ),
-                ],
-              ),
+                ),
+                AnimatedSize(
+                  duration: MotionTokens.normal,
+                  curve: MotionTokens.standard,
+                  alignment: Alignment.topCenter,
+                  child: expanded
+                      ? Padding(
+                          padding: const EdgeInsets.only(top: AppSpacing.md),
+                          child: insight == null
+                              ? const _CoachLoadingContent()
+                              : _CoachInsightContent(
+                                  insight: insight,
+                                  onCreateFirstAction: onCreateFirstAction,
+                                  onOpenFirstTopTask: onOpenFirstTopTask,
+                                  onKeepOnlyTopTasks: onKeepOnlyTopTasks,
+                                  onOpenFirstDelayedGoal:
+                                      onOpenFirstDelayedGoal,
+                                  onReviewCompletedDay: onReviewCompletedDay,
+                                ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -47,7 +47,7 @@ class AndroidBackgroundTaskService implements BackgroundTaskService {
       if (reminder.targetType != ReminderTargetType.task) {
         continue;
       }
-      if (!reminder.remindAt.isAfter(now)) {
+      if (!reminder.repeatRule.isRepeating && !reminder.remindAt.isAfter(now)) {
         continue;
       }
 
@@ -61,7 +61,17 @@ class AndroidBackgroundTaskService implements BackgroundTaskService {
         title: 'Evoly 提醒',
         body: task.title,
         scheduledAt: reminder.remindAt,
+        repeat: _notificationRepeatFor(reminder.repeatRule),
       );
     }
+  }
+
+  NotificationRepeat _notificationRepeatFor(RepeatRule repeatRule) {
+    return switch (repeatRule) {
+      RepeatRule.daily => NotificationRepeat.daily,
+      RepeatRule.weekly => NotificationRepeat.weekly,
+      RepeatRule.monthly => NotificationRepeat.monthly,
+      RepeatRule.none || RepeatRule.custom => NotificationRepeat.none,
+    };
   }
 }

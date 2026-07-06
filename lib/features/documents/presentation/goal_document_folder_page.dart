@@ -12,7 +12,9 @@ import 'package:evoly/features/tasks/data/task_repository.dart';
 import 'package:evoly/features/tasks/domain/task_item.dart';
 import 'package:evoly/shared/ui/components/animated_progress_bar.dart';
 import 'package:evoly/shared/ui/components/app_components.dart';
+import 'package:evoly/shared/ui/tokens/app_radii.dart';
 import 'package:evoly/shared/ui/tokens/app_spacing.dart';
+import 'package:evoly/shared/ui/tokens/evoly_design_tokens.dart';
 import 'package:evoly/shared/widgets/empty_state.dart';
 import 'package:evoly/shared/widgets/evoly_navigation_bar.dart';
 
@@ -45,16 +47,15 @@ class _GoalDocumentFolderPageState extends State<GoalDocumentFolderPage> {
   Widget build(BuildContext context) {
     final goalTitle = _goal?.title ?? '目标档案夹';
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(goalTitle),
-        actions: [
-          IconButton(
-            onPressed: _loading ? null : _loadFolder,
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-        ],
-      ),
+    return AppPageScaffold(
+      title: goalTitle,
+      actions: [
+        IconButton(
+          tooltip: '刷新档案夹',
+          onPressed: _loading ? null : _loadFolder,
+          icon: const Icon(Icons.refresh_rounded),
+        ),
+      ],
       body: _buildBody(),
       floatingActionButton: _goal == null
           ? null
@@ -117,43 +118,52 @@ class _GoalDocumentFolderPageState extends State<GoalDocumentFolderPage> {
             documentCount: _documents.length,
           ),
           const SizedBox(height: AppSpacing.lg),
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            children: [
-              FilledButton.icon(
-                onPressed: _createProjectSummary,
-                icon: const Icon(Icons.fact_check_outlined),
-                label: Text(
-                  goal.status == GoalStatus.completed ? '创建项目总结' : '创建总结草稿',
+          AppSurface(
+            variant: AppSurfaceVariant.muted,
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: [
+                FilledButton.icon(
+                  onPressed: _createProjectSummary,
+                  icon: const Icon(Icons.fact_check_outlined),
+                  label: Text(
+                    goal.status == GoalStatus.completed ? '创建项目总结' : '创建总结草稿',
+                  ),
                 ),
-              ),
-              OutlinedButton.icon(
-                onPressed: _createLinkedDocument,
-                icon: const Icon(Icons.note_add_outlined),
-                label: const Text('新建过程记录'),
-              ),
-            ],
+                OutlinedButton.icon(
+                  onPressed: _createLinkedDocument,
+                  icon: const Icon(Icons.note_add_outlined),
+                  label: const Text('新建过程记录'),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: AppSpacing.lg),
-          Text('文件夹内文档', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: AppSpacing.sm),
-          if (_documents.isEmpty)
-            const EmptyState(
-              icon: Icons.article_outlined,
-              title: '这个目标还没有文档',
-              message: '可新建过程记录或项目总结。',
-            )
-          else
-            ..._documents.map((document) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: _FolderDocumentCard(
-                  document: document,
-                  onTap: () => _openDocument(document),
-                ),
-              );
-            }),
+          AppSection(
+            title: '文件夹内文档',
+            padding: EdgeInsets.zero,
+            child: _documents.isEmpty
+                ? const EmptyState(
+                    icon: Icons.article_outlined,
+                    title: '这个目标还没有文档',
+                    message: '可新建过程记录或项目总结。',
+                  )
+                : Column(
+                    children: [
+                      ..._documents.map((document) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                          child: _FolderDocumentCard(
+                            document: document,
+                            onTap: () => _openDocument(document),
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+          ),
         ],
       ),
     );
@@ -308,39 +318,64 @@ class _FolderHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tokens = EvolyDesignTokens.of(context);
     final progressPercent = (progress.clamp(0.0, 1.0) * 100).round();
+    final statusColor =
+        _goalStatusColor(goal.status, theme.colorScheme, tokens);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const CircleAvatar(child: Icon(Icons.folder_rounded)),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    goal.title,
-                    style: theme.textTheme.titleLarge,
-                  ),
+    return AppSurface(
+      variant: AppSurfaceVariant.raised,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _FolderIconBadge(
+                icon: Icons.folder_rounded,
+                color: statusColor,
+                size: 48,
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(
+                  goal.title,
+                  style: theme.textTheme.titleLarge,
                 ),
-              ],
-            ),
-            if (goal.description.trim().isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Text(goal.description, style: theme.textTheme.bodyMedium),
+              ),
             ],
-            const SizedBox(height: AppSpacing.md),
-            AnimatedProgressBar(value: progress),
+          ),
+          if (goal.description.trim().isNotEmpty) ...[
             const SizedBox(height: AppSpacing.sm),
-            Text(
-              '${_goalStatusLabel(goal.status)} · $progressPercent% · $taskCount 个子任务 · $documentCount 篇文档',
-              style: theme.textTheme.bodySmall,
-            ),
+            Text(goal.description, style: theme.textTheme.bodyMedium),
           ],
-        ),
+          const SizedBox(height: AppSpacing.md),
+          AnimatedProgressBar(value: progress),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              AppMetaPill(
+                label: _goalStatusLabel(goal.status),
+                icon: Icons.flag_outlined,
+                color: statusColor,
+                selected: true,
+              ),
+              AppMetaPill(
+                label: '$progressPercent%',
+                icon: Icons.timeline_rounded,
+              ),
+              AppMetaPill(
+                label: '$taskCount 个子任务',
+                icon: Icons.task_alt_outlined,
+              ),
+              AppMetaPill(
+                label: '$documentCount 篇文档',
+                icon: Icons.article_outlined,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -358,67 +393,125 @@ class _FolderDocumentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final tokens = EvolyDesignTokens.of(context);
+    final typeColor =
+        _documentTypeColor(document.type, theme.colorScheme, tokens);
 
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CircleAvatar(
-                child: Icon(
-                  document.type == DocumentType.projectSummary
-                      ? Icons.fact_check_outlined
-                      : Icons.article_outlined,
+    return AppSurface(
+      onTap: onTap,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _FolderIconBadge(
+            icon: _documentTypeIcon(document.type),
+            color: typeColor,
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  document.displayTitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium,
                 ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xs,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            document.displayTitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleMedium,
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.xs),
-                        Chip(
-                          visualDensity: VisualDensity.compact,
-                          label: Text(document.type.label),
-                        ),
-                      ],
+                    AppMetaPill(
+                      label: document.type.label,
+                      icon: _documentTypeIcon(document.type),
+                      color: typeColor,
+                      selected: true,
                     ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      document.excerpt,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      '更新于 ${_formatDateTime(document.updatedAt)}',
-                      style: theme.textTheme.bodySmall,
+                    AppMetaPill(
+                      label: _formatDateTime(document.updatedAt),
+                      icon: Icons.schedule_rounded,
                     ),
                   ],
                 ),
-              ),
-              const Icon(Icons.chevron_right_rounded),
-            ],
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  document.excerpt,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ],
+            ),
           ),
-        ),
+          const SizedBox(width: AppSpacing.sm),
+          const Icon(Icons.chevron_right_rounded),
+        ],
       ),
     );
   }
+}
+
+class _FolderIconBadge extends StatelessWidget {
+  const _FolderIconBadge({
+    required this.icon,
+    required this.color,
+    this.size = 44,
+  });
+
+  final IconData icon;
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.13),
+        borderRadius: BorderRadius.circular(AppRadii.element),
+      ),
+      child: SizedBox.square(
+        dimension: size,
+        child: Icon(icon, color: color, size: size > 44 ? 24 : 22),
+      ),
+    );
+  }
+}
+
+IconData _documentTypeIcon(DocumentType type) {
+  return switch (type) {
+    DocumentType.projectNote => Icons.article_outlined,
+    DocumentType.projectSummary => Icons.fact_check_outlined,
+    DocumentType.review => Icons.rate_review_outlined,
+    DocumentType.knowledge => Icons.auto_stories_outlined,
+  };
+}
+
+Color _documentTypeColor(
+  DocumentType type,
+  ColorScheme colorScheme,
+  EvolyDesignTokens tokens,
+) {
+  return switch (type) {
+    DocumentType.projectNote => colorScheme.primary,
+    DocumentType.projectSummary => tokens.statusSuccess,
+    DocumentType.review => tokens.statusWarning,
+    DocumentType.knowledge => colorScheme.tertiary,
+  };
+}
+
+Color _goalStatusColor(
+  GoalStatus status,
+  ColorScheme colorScheme,
+  EvolyDesignTokens tokens,
+) {
+  return switch (status) {
+    GoalStatus.notStarted => colorScheme.onSurfaceVariant,
+    GoalStatus.inProgress => colorScheme.primary,
+    GoalStatus.completed => tokens.statusSuccess,
+    GoalStatus.paused => tokens.statusWarning,
+    GoalStatus.abandoned => colorScheme.error,
+  };
 }
 
 String _goalStatusLabel(GoalStatus status) {

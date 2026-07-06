@@ -12,6 +12,7 @@ import 'package:evoly/features/reminders/data/reminder_repository.dart';
 import 'package:evoly/features/reminders/domain/reminder.dart';
 import 'package:evoly/features/tasks/data/task_repository.dart';
 import 'package:evoly/features/tasks/domain/task_item.dart';
+import 'package:evoly/shared/ui/tokens/app_radii.dart';
 
 void main() {
   testWidgets('renders folded and expanded compact reminder states',
@@ -146,6 +147,10 @@ void main() {
     var decoration = _compactPanelDecoration(tester);
     expect(decoration.border, isNull);
     expect(decoration.boxShadow, isNull);
+    expect(
+      (decoration.borderRadius! as BorderRadius).topLeft.x,
+      AppRadii.lg,
+    );
 
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     addTearDown(mouse.removePointer);
@@ -155,6 +160,8 @@ void main() {
     decoration = _compactPanelDecoration(tester);
     expect(decoration.border, isNull);
     expect(decoration.boxShadow, isNotNull);
+    expect(decoration.boxShadow!.first.blurRadius, 18);
+    expect(decoration.boxShadow!.first.offset, const Offset(0, 10));
 
     await mouse.moveTo(const Offset(420, 240));
     await tester.pump(const Duration(milliseconds: 500));
@@ -168,6 +175,82 @@ void main() {
     decoration = _compactPanelDecoration(tester);
     expect(decoration.border, isNull);
     expect(decoration.boxShadow, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('icon buttons expose semantics and pressed chrome',
+      (tester) async {
+    tester.view.physicalSize = const Size(360, 184);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      _compactPanelHarness(
+        tasks: const [],
+        reminders: const [],
+        expanded: false,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Tooltip), findsNothing);
+    expect(
+      find.ancestor(
+        of: find.byIcon(Icons.keyboard_arrow_down_rounded),
+        matching: find.byType(Semantics),
+      ),
+      findsWidgets,
+    );
+    var decoration =
+        _compactIconButtonDecoration(tester, Icons.keyboard_arrow_down_rounded);
+    expect(decoration.color, Colors.transparent);
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(
+      tester.getCenter(find.byIcon(Icons.keyboard_arrow_down_rounded)),
+    );
+    await tester.pumpAndSettle();
+
+    final hoveredDecoration =
+        _compactIconButtonDecoration(tester, Icons.keyboard_arrow_down_rounded);
+    expect(hoveredDecoration.color, isNot(Colors.transparent));
+
+    final touch = await tester.startGesture(
+      tester.getCenter(find.byIcon(Icons.keyboard_arrow_down_rounded)),
+    );
+    await tester.pumpAndSettle();
+
+    decoration =
+        _compactIconButtonDecoration(tester, Icons.keyboard_arrow_down_rounded);
+    expect(decoration.color, isNot(hoveredDecoration.color));
+
+    await touch.up();
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('renders in bare desktop shell without overlay', (tester) async {
+    tester.view.physicalSize = const Size(360, 184);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      _compactPanelHarness(
+        tasks: const [],
+        reminders: const [],
+        expanded: false,
+        bareDesktopShell: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Tooltip), findsNothing);
+    expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -241,15 +324,54 @@ BoxDecoration _compactPanelDecoration(WidgetTester tester) {
   fail('Compact panel decoration not found.');
 }
 
+BoxDecoration _compactIconButtonDecoration(
+  WidgetTester tester,
+  IconData icon,
+) {
+  final iconFinder = find.byIcon(icon);
+  expect(iconFinder, findsOneWidget);
+
+  final containerFinder = find.ancestor(
+    of: iconFinder,
+    matching: find.byType(AnimatedContainer),
+  );
+
+  for (final container
+      in tester.widgetList<AnimatedContainer>(containerFinder)) {
+    final decoration = container.decoration;
+    if (decoration is BoxDecoration && decoration.color != null) {
+      final radius = decoration.borderRadius;
+      if (radius is BorderRadius && radius.topLeft.x == AppRadii.sm) {
+        return decoration;
+      }
+    }
+  }
+
+  fail('Compact icon button decoration not found.');
+}
+
 Widget _compactPanelHarness({
   required List<TaskItem> tasks,
   required List<Reminder> reminders,
   required bool expanded,
   VoidCallback? onStartDrag,
   VoidCallback? onEndDrag,
+  bool bareDesktopShell = false,
 }) {
   final taskRepository = _FakeTaskRepository(tasks);
   final reminderRepository = _FakeReminderRepository(reminders);
+  final panel = SizedBox(
+    width: 360,
+    height: expanded ? 360 : 184,
+    child: CompactReminderPanel(
+      expanded: expanded,
+      onToggleExpanded: () {},
+      onOpenFullMode: (_) {},
+      onHideWindow: () {},
+      onStartDrag: onStartDrag ?? () {},
+      onEndDrag: onEndDrag ?? () {},
+    ),
+  );
 
   return MultiProvider(
     providers: [
@@ -269,20 +391,25 @@ Widget _compactPanelHarness({
         ),
       ),
     ],
-    child: MaterialApp(
-      home: SizedBox(
-        width: 360,
-        height: expanded ? 360 : 184,
-        child: CompactReminderPanel(
-          expanded: expanded,
-          onToggleExpanded: () {},
-          onOpenFullMode: (_) {},
-          onHideWindow: () {},
-          onStartDrag: onStartDrag ?? () {},
-          onEndDrag: onEndDrag ?? () {},
-        ),
-      ),
-    ),
+    child: bareDesktopShell
+        ? MediaQuery(
+            data: MediaQueryData(
+              size: Size(360, expanded ? 360 : 184),
+              devicePixelRatio: 1,
+            ),
+            child: Directionality(
+              textDirection: TextDirection.ltr,
+              child: Theme(
+                data: ThemeData(
+                  colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
+                ),
+                child: panel,
+              ),
+            ),
+          )
+        : MaterialApp(
+            home: panel,
+          ),
   );
 }
 

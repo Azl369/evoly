@@ -18,6 +18,7 @@ class ReminderScheduler {
       title: '目标提醒',
       body: '有一个计划需要你推进一下。',
       scheduledAt: reminder.remindAt,
+      repeat: _notificationRepeatFor(reminder.repeatRule),
     );
   }
 
@@ -33,7 +34,17 @@ class ReminderScheduler {
         title: '目标提醒',
         body: '有一个计划需要推进。',
         scheduledAt: reminder.remindAt,
+        repeat: _notificationRepeatFor(reminder.repeatRule),
       );
     }
+  }
+
+  NotificationRepeat _notificationRepeatFor(RepeatRule repeatRule) {
+    return switch (repeatRule) {
+      RepeatRule.daily => NotificationRepeat.daily,
+      RepeatRule.weekly => NotificationRepeat.weekly,
+      RepeatRule.monthly => NotificationRepeat.monthly,
+      RepeatRule.none || RepeatRule.custom => NotificationRepeat.none,
+    };
   }
 }

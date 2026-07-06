@@ -1,0 +1,62 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Nobi Plush Scout avatar</title>
+  <desc id="desc">A close-up avatar of Nobi, an original cream plush companion with radar ears, oversized HUD glasses, and orbit eyes.</desc>
+  <defs>
+    <linearGradient id="fur" x1="138" y1="46" x2="372" y2="372" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF9EF"/>
+      <stop offset="0.52" stop-color="#F1E3D1"/>
+      <stop offset="1" stop-color="#D4BEA5"/>
+    </linearGradient>
+    <linearGradient id="face" x1="152" y1="132" x2="360" y2="304" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF2DE"/>
+      <stop offset="1" stop-color="#E9C6A7"/>
+    </linearGradient>
+    <linearGradient id="lens" x1="139" y1="180" x2="375" y2="265" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.86"/>
+      <stop offset="1" stop-color="#6EA8FF" stop-opacity="0.18"/>
+    </linearGradient>
+    <linearGradient id="eye" x1="186" y1="203" x2="224" y2="254" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#49698F"/>
+      <stop offset="1" stop-color="#0B1829"/>
+    </linearGradient>
+    <filter id="shadow" x="46" y="0" width="420" height="478" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="14" stdDeviation="20" flood-color="#0B111B" flood-opacity="0.16"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#6EA8FF" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+
+  <circle cx="256" cy="258" r="226" fill="#6EA8FF" fill-opacity="0.07"/>
+  <g filter="url(#shadow)">
+    <path d="M194 96C176 52 186 21 216 14C242 8 258 36 256 77C254 36 270 8 296 14C326 21 336 52 318 96C369 125 400 179 400 252C400 356 338 421 256 421C174 421 112 356 112 252C112 179 143 125 194 96Z" fill="url(#fur)"/>
+    <ellipse cx="256" cy="247" rx="156" ry="112" fill="url(#face)"/>
+    <circle cx="136" cy="184" r="12" fill="#FFF9EF" opacity="0.74"/>
+    <circle cx="123" cy="255" r="10" fill="#FFF9EF" opacity="0.68"/>
+    <circle cx="146" cy="329" r="13" fill="#FFF9EF" opacity="0.68"/>
+    <circle cx="376" cy="184" r="12" fill="#FFF9EF" opacity="0.74"/>
+    <circle cx="389" cy="255" r="10" fill="#FFF9EF" opacity="0.68"/>
+    <circle cx="366" cy="329" r="13" fill="#FFF9EF" opacity="0.68"/>
+    <path d="M214 111C237 96 268 96 292 111" stroke="#FFF9EF" stroke-width="12" stroke-linecap="round" opacity="0.76"/>
+    <path d="M206 34C226 36 242 63 248 95" stroke="#E4BFA8" stroke-width="10" stroke-linecap="round" opacity="0.55"/>
+    <path d="M306 34C286 36 270 63 264 95" stroke="#E4BFA8" stroke-width="10" stroke-linecap="round" opacity="0.55"/>
+  </g>
+  <path d="M205 72L187 110" stroke="#6EA8FF" stroke-width="5" stroke-linecap="round"/>
+  <path d="M307 72L325 110" stroke="#6EA8FF" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="205" cy="69" r="11" fill="#28D8C0"/>
+  <circle cx="307" cy="69" r="11" fill="#28D8C0"/>
+  <circle cx="205" cy="69" r="20" stroke="#28D8C0" stroke-opacity="0.22" stroke-width="5"/>
+  <circle cx="307" cy="69" r="20" stroke="#28D8C0" stroke-opacity="0.22" stroke-width="5"/>
+
+  <rect x="132" y="196" width="108" height="75" rx="29" fill="url(#lens)" stroke="#101820" stroke-width="13"/>
+  <rect x="272" y="196" width="108" height="75" rx="29" fill="url(#lens)" stroke="#101820" stroke-width="13"/>
+  <path d="M240 228C249 223 263 223 272 228" stroke="#101820" stroke-width="13" stroke-linecap="round"/>
+  <ellipse cx="190" cy="235" rx="27" ry="32" fill="url(#eye)"/>
+  <ellipse cx="322" cy="235" rx="27" ry="32" fill="url(#eye)"/>
+  <circle cx="180" cy="224" r="7" fill="#FFFFFF"/>
+  <circle cx="312" cy="224" r="7" fill="#FFFFFF"/>
+  <path d="M181 251C192 242 205 242 216 251" stroke="#28D8C0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M313 251C324 242 337 242 348 251" stroke="#28D8C0" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="216" cy="243" r="5" fill="#6EA8FF"/>
+  <circle cx="348" cy="243" r="5" fill="#6EA8FF"/>
+  <ellipse cx="256" cy="284" rx="13" ry="10" fill="#6B5846"/>
+  <path d="M232 320C247 332 265 332 280 320" stroke="#2E2A27" stroke-width="8" stroke-linecap="round"/>
+</svg>

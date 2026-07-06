@@ -94,6 +94,230 @@ class AppSectionHeader extends StatelessWidget {
   }
 }
 
+class AppSection extends StatelessWidget {
+  const AppSection({
+    required this.title,
+    required this.child,
+    super.key,
+    this.subtitle,
+    this.trailing,
+    this.padding = const EdgeInsets.symmetric(
+      horizontal: AppSpacing.md,
+      vertical: AppSpacing.sm,
+    ),
+    this.spacing = AppSpacing.sm,
+  });
+
+  final String title;
+  final Widget child;
+  final String? subtitle;
+  final Widget? trailing;
+  final EdgeInsetsGeometry padding;
+  final double spacing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: padding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppSectionHeader(
+            title: title,
+            subtitle: subtitle,
+            trailing: trailing,
+            padding: EdgeInsets.zero,
+          ),
+          SizedBox(height: spacing),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+enum AppSurfaceVariant {
+  plain,
+  raised,
+  muted,
+  glass,
+  selected,
+  warning,
+}
+
+class AppSurface extends StatefulWidget {
+  const AppSurface({
+    required this.child,
+    super.key,
+    this.variant = AppSurfaceVariant.raised,
+    this.onTap,
+    this.padding = const EdgeInsets.all(AppSpacing.md),
+    this.margin = EdgeInsets.zero,
+    this.radius = AppRadii.container,
+    this.enabled = true,
+    this.clipBehavior = Clip.antiAlias,
+  });
+
+  final Widget child;
+  final AppSurfaceVariant variant;
+  final VoidCallback? onTap;
+  final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry margin;
+  final double radius;
+  final bool enabled;
+  final Clip clipBehavior;
+
+  @override
+  State<AppSurface> createState() => _AppSurfaceState();
+}
+
+class _AppSurfaceState extends State<AppSurface> {
+  var _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = EvolyDesignTokens.of(context);
+    final borderRadius = BorderRadius.circular(widget.radius);
+    final interactive = widget.enabled && widget.onTap != null;
+    final color = _surfaceColor(tokens, interactive);
+    final border = _border(tokens, interactive);
+    final shadow = _shadow(tokens, interactive);
+    final materialChild = Material(
+      color: Colors.transparent,
+      clipBehavior: widget.clipBehavior,
+      borderRadius: borderRadius,
+      child: InkWell(
+        onTap: interactive ? widget.onTap : null,
+        onHover: interactive
+            ? (hovered) {
+                setState(() => _hovered = hovered);
+              }
+            : null,
+        borderRadius: borderRadius,
+        child: Padding(
+          padding: widget.padding,
+          child: widget.child,
+        ),
+      ),
+    );
+
+    Widget content = ClipRRect(
+      borderRadius: borderRadius,
+      clipBehavior: widget.clipBehavior,
+      child: widget.variant == AppSurfaceVariant.glass
+          ? BackdropFilter(
+              filter: ui.ImageFilter.blur(
+                sigmaX: tokens.glassBlurSigma,
+                sigmaY: tokens.glassBlurSigma,
+              ),
+              child: materialChild,
+            )
+          : materialChild,
+    );
+
+    content = DecoratedBox(
+      decoration: BoxDecoration(
+        color: widget.variant == AppSurfaceVariant.glass ? null : color,
+        gradient: widget.variant == AppSurfaceVariant.glass
+            ? LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color.alphaBlend(
+                    tokens.glassHighlight.withValues(alpha: 0.08),
+                    color,
+                  ),
+                  color,
+                ],
+              )
+            : null,
+        borderRadius: borderRadius,
+        border: border,
+        boxShadow: shadow,
+      ),
+      child: content,
+    );
+
+    if (!widget.enabled) {
+      content = Opacity(opacity: 0.62, child: content);
+    }
+
+    return Padding(
+      padding: widget.margin,
+      child: content,
+    );
+  }
+
+  Color _surfaceColor(EvolyDesignTokens tokens, bool interactive) {
+    final baseColor = switch (widget.variant) {
+      AppSurfaceVariant.plain => Colors.transparent,
+      AppSurfaceVariant.raised => tokens.cardSurface,
+      AppSurfaceVariant.muted => tokens.surfaceMuted,
+      AppSurfaceVariant.glass => tokens.glassSurfaceRaised,
+      AppSurfaceVariant.selected => Color.alphaBlend(
+          tokens.hudAccent.withValues(alpha: 0.12),
+          tokens.cardSurface,
+        ),
+      AppSurfaceVariant.warning => Color.alphaBlend(
+          tokens.statusWarning.withValues(alpha: 0.12),
+          tokens.cardSurface,
+        ),
+    };
+
+    if (!_hovered || !interactive) {
+      return baseColor;
+    }
+
+    final overlayColor = widget.variant == AppSurfaceVariant.warning
+        ? tokens.statusWarning
+        : tokens.hudAccent;
+    return Color.alphaBlend(
+      overlayColor.withValues(alpha: 0.05),
+      baseColor,
+    );
+  }
+
+  Border? _border(EvolyDesignTokens tokens, bool interactive) {
+    final color = switch (widget.variant) {
+      AppSurfaceVariant.plain => null,
+      AppSurfaceVariant.raised => tokens.borderSubtle,
+      AppSurfaceVariant.muted => tokens.borderSubtle,
+      AppSurfaceVariant.glass => tokens.glassBorder,
+      AppSurfaceVariant.selected => tokens.borderEmphasized,
+      AppSurfaceVariant.warning => tokens.statusWarning.withValues(alpha: 0.45),
+    };
+
+    if (color == null) {
+      return null;
+    }
+
+    if (_hovered &&
+        interactive &&
+        widget.variant != AppSurfaceVariant.warning) {
+      return Border.all(color: tokens.borderEmphasized);
+    }
+
+    return Border.all(color: color);
+  }
+
+  List<BoxShadow>? _shadow(EvolyDesignTokens tokens, bool interactive) {
+    final shadow = switch (widget.variant) {
+      AppSurfaceVariant.plain => null,
+      AppSurfaceVariant.muted => null,
+      AppSurfaceVariant.raised => tokens.shadowLow,
+      AppSurfaceVariant.glass => tokens.shadowMedium,
+      AppSurfaceVariant.selected => tokens.shadowMedium,
+      AppSurfaceVariant.warning => tokens.shadowLow,
+    };
+
+    if (_hovered && interactive) {
+      return shadow == null ? tokens.shadowLow : tokens.shadowMedium;
+    }
+
+    return shadow;
+  }
+}
+
 class AppGlassSurface extends StatefulWidget {
   const AppGlassSurface({
     required this.child,
@@ -270,6 +494,10 @@ class AppListCard extends StatelessWidget {
     this.onTap,
     this.selected = false,
     this.compact = false,
+    this.margin = const EdgeInsets.symmetric(
+      horizontal: AppSpacing.md,
+      vertical: AppSpacing.xs,
+    ),
   });
 
   final Widget title;
@@ -280,6 +508,7 @@ class AppListCard extends StatelessWidget {
   final VoidCallback? onTap;
   final bool selected;
   final bool compact;
+  final EdgeInsetsGeometry margin;
 
   @override
   Widget build(BuildContext context) {
@@ -289,6 +518,7 @@ class AppListCard extends StatelessWidget {
     return AppSurfaceCard(
       onTap: onTap,
       elevated: selected,
+      margin: margin,
       backgroundColor: selected
           ? colorScheme.primaryContainer.withValues(alpha: 0.36)
           : tokens.glassSurfaceRaised,
@@ -354,7 +584,7 @@ class AppMetaPill extends StatelessWidget {
     final tokens = EvolyDesignTokens.of(context);
     final accent = color ?? colorScheme.onSurfaceVariant;
     final background =
-        selected ? accent.withValues(alpha: 0.14) : tokens.glassSurfaceSubtle;
+        selected ? accent.withValues(alpha: 0.14) : tokens.surfaceMuted;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -391,17 +621,101 @@ class AppMetaPill extends StatelessWidget {
   }
 }
 
+class AppField extends StatelessWidget {
+  const AppField({
+    required this.child,
+    super.key,
+    this.label,
+    this.helperText,
+    this.errorText,
+    this.trailing,
+    this.isRequired = false,
+    this.padding = EdgeInsets.zero,
+    this.spacing = AppSpacing.xs,
+  });
+
+  final Widget child;
+  final String? label;
+  final String? helperText;
+  final String? errorText;
+  final Widget? trailing;
+  final bool isRequired;
+  final EdgeInsetsGeometry padding;
+  final double spacing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final tokens = EvolyDesignTokens.of(context);
+    final label = this.label;
+    final message = errorText ?? helperText;
+
+    return Padding(
+      padding: padding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (label != null || trailing != null) ...[
+            Row(
+              children: [
+                if (label != null)
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: tokens.textPrimary,
+                      ),
+                    ),
+                  ),
+                if (label != null && isRequired)
+                  Text(
+                    ' *',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: colorScheme.error,
+                    ),
+                  ),
+                if (trailing != null) ...[
+                  const Spacer(),
+                  trailing!,
+                ],
+              ],
+            ),
+            SizedBox(height: spacing),
+          ],
+          child,
+          if (message != null) ...[
+            SizedBox(height: spacing),
+            Text(
+              message,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: errorText == null
+                    ? tokens.textSecondary
+                    : colorScheme.error,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class AppStatusBadge extends StatelessWidget {
   const AppStatusBadge({
     required this.label,
     required this.color,
     super.key,
     this.icon,
+    this.compact = true,
   });
 
   final String label;
   final Color color;
   final IconData? icon;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -410,6 +724,7 @@ class AppStatusBadge extends StatelessWidget {
       icon: icon,
       color: color,
       selected: true,
+      compact: compact,
     );
   }
 }

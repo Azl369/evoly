@@ -56,26 +56,24 @@ class _DocumentLibraryPageState extends State<DocumentLibraryPage> {
   Widget build(BuildContext context) {
     final useDesktopLayout = MediaQuery.sizeOf(context).width >= 900;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('文档库'),
-        actions: [
-          IconButton(
-            tooltip: '刷新文档库',
-            onPressed: _loading ? null : _loadLibrary,
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-          if (useDesktopLayout)
-            Padding(
-              padding: const EdgeInsets.only(right: AppSpacing.md),
-              child: FilledButton.icon(
-                onPressed: _openCreateDocument,
-                icon: const Icon(Icons.edit_note_rounded),
-                label: const Text('新建文档'),
-              ),
+    return AppPageScaffold(
+      title: '文档库',
+      actions: [
+        IconButton(
+          tooltip: '刷新文档库',
+          onPressed: _loading ? null : _loadLibrary,
+          icon: const Icon(Icons.refresh_rounded),
+        ),
+        if (useDesktopLayout)
+          Padding(
+            padding: const EdgeInsets.only(right: AppSpacing.md),
+            child: FilledButton.icon(
+              onPressed: _openCreateDocument,
+              icon: const Icon(Icons.edit_note_rounded),
+              label: const Text('新建文档'),
             ),
-        ],
-      ),
+          ),
+      ],
       body: _buildBody(),
       floatingActionButton: useDesktopLayout
           ? null
@@ -728,10 +726,9 @@ class _LibrarySummaryCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final tokens = EvolyDesignTokens.of(context);
 
-    return AppSurfaceCard(
+    return AppSurface(
+      variant: AppSurfaceVariant.muted,
       margin: EdgeInsets.zero,
-      elevated: true,
-      backgroundColor: tokens.surfaceSubtle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -904,28 +901,23 @@ class _SearchResultSummary extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.46),
-        borderRadius: BorderRadius.circular(AppRadii.md),
+    return AppSurface(
+      variant: AppSurfaceVariant.muted,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.compact,
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.compact,
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.manage_search_rounded, color: colorScheme.primary),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Text(
-                '“$queryText” 找到 $folderCount 个档案夹、$documentCount 篇文档',
-                style: theme.textTheme.bodyMedium,
-              ),
+      child: Row(
+        children: [
+          Icon(Icons.manage_search_rounded, color: colorScheme.primary),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              '“$queryText” 找到 $folderCount 个档案夹、$documentCount 篇文档',
+              style: theme.textTheme.bodyMedium,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -947,12 +939,10 @@ class _EmptyFolderDisclosure extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return AppSurfaceCard(
+    return AppSurface(
+      variant: AppSurfaceVariant.muted,
       margin: EdgeInsets.zero,
       onTap: onTap,
-      backgroundColor: colorScheme.surfaceContainerHighest.withValues(
-        alpha: 0.34,
-      ),
       child: Row(
         children: [
           _IconBadge(
@@ -1027,7 +1017,7 @@ class _GoalFolderCard extends StatelessWidget {
       tokens,
     );
 
-    return AppSurfaceCard(
+    return AppSurface(
       onTap: onTap,
       margin: EdgeInsets.zero,
       child: Column(
@@ -1131,7 +1121,7 @@ class _DocumentCard extends StatelessWidget {
     final typeColor =
         _documentTypeColor(document.type, theme.colorScheme, tokens);
 
-    return AppSurfaceCard(
+    return AppSurface(
       onTap: onTap,
       margin: EdgeInsets.zero,
       child: Row(
