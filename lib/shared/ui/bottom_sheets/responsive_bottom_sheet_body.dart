@@ -65,7 +65,7 @@ class _ResponsiveFullScreenBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      resizeToAvoidBottomInset: true,
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -88,11 +88,11 @@ class _ResponsiveFullScreenBody extends StatelessWidget {
               child: SingleChildScrollView(
                 keyboardDismissBehavior:
                     ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: const EdgeInsets.fromLTRB(
+                padding: EdgeInsets.fromLTRB(
                   AppSpacing.md,
                   AppSpacing.sm,
                   AppSpacing.md,
-                  AppSpacing.xl,
+                  MediaQuery.viewInsetsOf(context).bottom + AppSpacing.xl,
                 ),
                 child: Center(
                   child: ConstrainedBox(

@@ -100,12 +100,14 @@ class SqliteTaskRepository implements TaskRepository {
         AND (
           due_date_time IS NULL
           OR due_date_time < ?
+          OR status = ?
         )
       ''',
       whereArgs: [
         TaskStatus.completed.name,
         TaskStatus.cancelled.name,
         AppDatabaseDateCodec.encodeDate(end),
+        TaskStatus.postponed.name,
       ],
       orderBy: '''
         CASE

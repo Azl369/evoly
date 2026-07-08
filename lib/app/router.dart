@@ -28,15 +28,22 @@ class AppRoutes {
   }
 }
 
+class GoalDetailRouteArguments {
+  const GoalDetailRouteArguments({
+    required this.goalId,
+    this.initialTaskId,
+  });
+
+  final String goalId;
+  final String? initialTaskId;
+}
+
 class AppRouter {
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     final page = switch (settings.name) {
       AppRoutes.today => const MainShellPage(initialIndex: 0),
       AppRoutes.goals => const MainShellPage(initialIndex: 1),
-      AppRoutes.goalDetail => GoalDetailPage(
-          goalId:
-              settings.arguments is String ? settings.arguments! as String : '',
-        ),
+      AppRoutes.goalDetail => _goalDetailPage(settings.arguments),
       AppRoutes.documents => const MainShellPage(initialIndex: 2),
       AppRoutes.documentEdit => _documentEditPage(settings.arguments),
       AppRoutes.documentGoalFolder => GoalDocumentFolderPage(
@@ -87,6 +94,19 @@ class AppRouter {
           ),
         );
       },
+    );
+  }
+
+  static GoalDetailPage _goalDetailPage(Object? arguments) {
+    if (arguments is GoalDetailRouteArguments) {
+      return GoalDetailPage(
+        goalId: arguments.goalId,
+        initialTaskId: arguments.initialTaskId,
+      );
+    }
+
+    return GoalDetailPage(
+      goalId: arguments is String ? arguments : '',
     );
   }
 

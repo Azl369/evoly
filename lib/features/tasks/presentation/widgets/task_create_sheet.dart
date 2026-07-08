@@ -3,27 +3,33 @@ import 'package:evoly/features/reminders/presentation/task_reminder_picker.dart'
 import 'package:evoly/shared/ui/bottom_sheets/bottom_sheet_form_layout.dart';
 import 'package:evoly/shared/ui/bottom_sheets/bottom_sheet_focus.dart';
 import 'package:evoly/shared/ui/components/app_components.dart';
+import 'package:evoly/features/tasks/presentation/widgets/task_due_picker.dart';
 
 class TaskCreateSheet extends StatefulWidget {
   const TaskCreateSheet({
     required this.onCreate,
     super.key,
+    this.customDueDateTimePicker = showTaskDueDateTimePicker,
   });
 
   final Future<void> Function(
     String title,
     int estimatedMinutes,
+    DateTime? dueDateTime,
     TaskReminderSelection reminder,
   ) onCreate;
+  final TaskDueDateTimePicker customDueDateTimePicker;
 
   @override
   State<TaskCreateSheet> createState() => _TaskCreateSheetState();
 }
 
 class _TaskCreateSheetState extends State<TaskCreateSheet> {
+  static const _defaultEstimatedMinutes = 30;
+
   late final TextEditingController _titleController;
-  late final TextEditingController _minutesController;
   late final FocusNode _titleFocusNode;
+  late DateTime? _selectedDueDateTime;
   var _selectedReminder = TaskReminderSelection.none;
   var _saving = false;
 
@@ -31,15 +37,14 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
   void initState() {
     super.initState();
     _titleController = TextEditingController();
-    _minutesController = TextEditingController(text: '30');
     _titleFocusNode = FocusNode();
+    _selectedDueDateTime = endOfToday(DateTime.now());
     requestFocusAfterBottomSheetEntrance(this, _titleFocusNode);
   }
 
   @override
   void dispose() {
     _titleController.dispose();
-    _minutesController.dispose();
     _titleFocusNode.dispose();
     super.dispose();
   }
@@ -66,11 +71,13 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
           ),
         ),
         AppField(
-          label: '预计耗时（分钟）',
-          child: TextField(
-            controller: _minutesController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(),
+          label: '截止时间',
+          child: TaskDuePicker(
+            dueDateTime: _selectedDueDateTime,
+            customPicker: widget.customDueDateTimePicker,
+            onChanged: (value) {
+              setState(() => _selectedDueDateTime = value);
+            },
           ),
         ),
         AppField(
@@ -93,10 +100,10 @@ class _TaskCreateSheetState extends State<TaskCreateSheet> {
     }
 
     setState(() => _saving = true);
-    final estimatedMinutes = int.tryParse(_minutesController.text.trim()) ?? 30;
     await widget.onCreate(
       title,
-      estimatedMinutes.clamp(1, 1440),
+      _defaultEstimatedMinutes,
+      _selectedDueDateTime,
       _selectedReminder,
     );
     if (mounted) {

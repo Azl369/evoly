@@ -122,7 +122,7 @@ class _FullScreenFormLayout extends StatelessWidget {
     final footer = this.footer;
 
     return Scaffold(
-      resizeToAvoidBottomInset: true,
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -178,26 +178,45 @@ class _FullScreenFormLayout extends StatelessWidget {
             ),
             const Divider(height: 1),
             Expanded(
-              child: SingleChildScrollView(
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.md,
-                  AppSpacing.md,
-                  AppSpacing.md,
-                  AppSpacing.xl,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (children.isNotEmpty)
-                      ...BottomSheetFormLayout._spaced(children, spacing),
-                  ],
-                ),
+              child: _KeyboardAwareFormScrollView(
+                spacing: spacing,
+                children: children,
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _KeyboardAwareFormScrollView extends StatelessWidget {
+  const _KeyboardAwareFormScrollView({
+    required this.children,
+    required this.spacing,
+  });
+
+  final List<Widget> children;
+  final double spacing;
+
+  @override
+  Widget build(BuildContext context) {
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+
+    return SingleChildScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        keyboardInset + AppSpacing.xl,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (children.isNotEmpty)
+            ...BottomSheetFormLayout._spaced(children, spacing),
+        ],
       ),
     );
   }

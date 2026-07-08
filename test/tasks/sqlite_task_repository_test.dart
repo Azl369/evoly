@@ -12,8 +12,7 @@ import 'package:evoly/features/tasks/data/sqlite_task_repository.dart';
 import 'package:evoly/features/tasks/domain/task_item.dart';
 
 void main() {
-  test(
-      'findPlanningCandidates includes due and long-running pending tasks only',
+  test('findPlanningCandidates includes due, postponed, and long-running tasks',
       () async {
     final directory = await Directory.systemTemp.createTemp('evoly-tasks-');
     final database = AppDatabase.testing(p.join(directory.path, 'evoly.db'));
@@ -81,6 +80,16 @@ void main() {
       ),
       taskRepository.save(
         _task(
+          id: 'postponed-future',
+          title: '延期到未来的任务',
+          priority: Priority.high,
+          status: TaskStatus.postponed,
+          dueDateTime: DateTime(2026, 7, 7, 18),
+          now: now,
+        ),
+      ),
+      taskRepository.save(
+        _task(
           id: 'completed-long-running',
           title: '已完成无截止任务',
           priority: Priority.high,
@@ -104,6 +113,7 @@ void main() {
 
     expect(results.map((task) => task.id), [
       'overdue',
+      'postponed-future',
       'today',
       'long-running',
     ]);

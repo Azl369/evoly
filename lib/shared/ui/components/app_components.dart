@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -318,10 +319,6 @@ class _AppSurfaceState extends State<AppSurface> {
       AppSurfaceVariant.warning => null,
     };
 
-    if (_hovered && interactive) {
-      return shadow ?? tokens.shadowLow;
-    }
-
     return shadow;
   }
 }
@@ -423,7 +420,7 @@ class _AppGlassSurfaceState extends State<AppGlassSurface> {
         baseColor,
       );
     }
-    if (_hovered && widget.onTap != null) {
+    if (_hovered) {
       return Color.alphaBlend(
         tokens.hudAccent.withValues(alpha: 0.06),
         baseColor,
@@ -433,14 +430,14 @@ class _AppGlassSurfaceState extends State<AppGlassSurface> {
   }
 
   List<BoxShadow>? _shadow(EvolyDesignTokens tokens) {
-    if (!widget.elevated && !_hovered && !widget.selected) {
+    if (!widget.elevated && !widget.selected) {
       return null;
     }
 
     return [
       BoxShadow(
         color: tokens.glassShadow,
-        blurRadius: widget.selected || _hovered ? 24 : 18,
+        blurRadius: widget.selected ? 24 : 18,
         offset: const Offset(0, 10),
       ),
     ];
@@ -593,36 +590,46 @@ class AppMetaPill extends StatelessWidget {
     final accent = color ?? colorScheme.onSurfaceVariant;
     final background =
         selected ? accent.withValues(alpha: 0.14) : tokens.surfaceMuted;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final maxWidth = math.max(
+      112.0,
+      math.min(280.0, screenWidth - AppSpacing.xl * 2),
+    );
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(AppRadii.pill),
-        border:
-            Border.all(color: accent.withValues(alpha: selected ? 0.28 : 0)),
-      ),
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: compact ? AppSpacing.sm : AppSpacing.md,
-          vertical: compact ? 3 : AppSpacing.xs,
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(AppRadii.pill),
+          border:
+              Border.all(color: accent.withValues(alpha: selected ? 0.28 : 0)),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 14, color: accent),
-              const SizedBox(width: AppSpacing.xs),
-            ],
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: accent,
-                fontWeight: FontWeight.w600,
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? AppSpacing.sm : AppSpacing.md,
+            vertical: compact ? 3 : AppSpacing.xs,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 14, color: accent),
+                const SizedBox(width: AppSpacing.xs),
+              ],
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: accent,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

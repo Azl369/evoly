@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:evoly/core/domain/priority.dart';
 import 'package:evoly/features/tasks/domain/task_item.dart';
+import 'package:evoly/features/tasks/presentation/widgets/task_due_picker.dart';
 import 'package:evoly/shared/ui/components/app_components.dart';
 import 'package:evoly/shared/ui/motion/motion_tokens.dart';
 import 'package:evoly/shared/ui/tokens/app_spacing.dart';
@@ -30,6 +31,8 @@ class TaskCard extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final tokens = EvolyDesignTokens.of(context);
     final textTheme = Theme.of(context).textTheme;
+    final now = DateTime.now();
+    final effectiveStatus = task.effectiveStatus(now);
     final titleStyle = textTheme.titleMedium?.copyWith(
       decoration: task.isCompleted ? TextDecoration.lineThrough : null,
       decorationColor: task.isCompleted ? colors.onSurfaceVariant : null,
@@ -43,7 +46,7 @@ class TaskCard extends StatelessWidget {
       color: colors.onSurfaceVariant,
     );
     final priorityColor = _priorityColor(tokens, task.priority);
-    final statusColor = _statusColor(tokens, colors, task.status);
+    final statusColor = _statusColor(tokens, colors, effectiveStatus);
 
     return AppListCard(
       selected: task.isCompleted,
@@ -89,13 +92,9 @@ class TaskCard extends StatelessWidget {
             selected: true,
           ),
           AppMetaPill(
-            label: '${task.estimatedMinutes} 分钟',
-            icon: Icons.timer_outlined,
-          ),
-          AppMetaPill(
-            label: task.status.label,
+            label: effectiveStatus.label,
             color: statusColor,
-            selected: task.status != TaskStatus.pending,
+            selected: effectiveStatus != TaskStatus.pending,
           ),
           if (contextLabel?.trim().isNotEmpty == true)
             AppMetaPill(
@@ -104,7 +103,11 @@ class TaskCard extends StatelessWidget {
             ),
           if (task.dueDateTime != null)
             AppMetaPill(
-              label: '截止 ${_formatTime(task.dueDateTime!)}',
+              label: formatTaskDueDateTime(
+                task.dueDateTime!,
+                now: now,
+                prefix: effectiveStatus == TaskStatus.postponed ? '已延期' : '截止',
+              ),
               icon: Icons.schedule_outlined,
             ),
           if (task.completedAt != null)

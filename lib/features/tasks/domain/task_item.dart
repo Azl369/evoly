@@ -49,6 +49,17 @@ class TaskItem {
 
   bool get isCompleted => status == TaskStatus.completed;
 
+  TaskStatus effectiveStatus(DateTime now) {
+    final dueDate = dueDateTime;
+    if (status == TaskStatus.pending &&
+        dueDate != null &&
+        dueDate.isBefore(now)) {
+      return TaskStatus.postponed;
+    }
+
+    return status;
+  }
+
   bool isDueToday(DateTime now) {
     final dueDate = dueDateTime;
     if (dueDate == null) {

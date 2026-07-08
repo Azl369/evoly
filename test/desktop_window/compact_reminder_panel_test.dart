@@ -128,6 +128,38 @@ void main() {
     expect(find.text('位置已保存'), findsNothing);
   });
 
+  testWidgets('empty reminder state prompts adding a task reminder',
+      (tester) async {
+    tester.view.physicalSize = const Size(360, 184);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    var openedFullMode = false;
+    String? openedTaskId = 'not-opened';
+
+    await tester.pumpWidget(
+      _compactPanelHarness(
+        tasks: const [],
+        reminders: const [],
+        expanded: false,
+        onOpenFullMode: (taskId) {
+          openedFullMode = true;
+          openedTaskId = taskId;
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('为任务添加提醒'), findsOneWidget);
+
+    await tester.tap(find.text('为任务添加提醒'));
+    await tester.pumpAndSettle();
+
+    expect(openedFullMode, isTrue);
+    expect(openedTaskId, isNull);
+  });
+
   testWidgets('removes outer border and fades chrome after hover exits',
       (tester) async {
     tester.view.physicalSize = const Size(360, 184);
@@ -357,6 +389,7 @@ Widget _compactPanelHarness({
   VoidCallback? onStartDrag,
   VoidCallback? onEndDrag,
   bool bareDesktopShell = false,
+  ValueChanged<String?>? onOpenFullMode,
 }) {
   final taskRepository = _FakeTaskRepository(tasks);
   final reminderRepository = _FakeReminderRepository(reminders);
@@ -366,7 +399,7 @@ Widget _compactPanelHarness({
     child: CompactReminderPanel(
       expanded: expanded,
       onToggleExpanded: () {},
-      onOpenFullMode: (_) {},
+      onOpenFullMode: onOpenFullMode ?? (_) {},
       onHideWindow: () {},
       onStartDrag: onStartDrag ?? () {},
       onEndDrag: onEndDrag ?? () {},

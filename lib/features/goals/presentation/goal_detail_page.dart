@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:evoly/app/data_refresh_listener.dart';
@@ -31,9 +33,11 @@ class GoalDetailPage extends StatefulWidget {
   const GoalDetailPage({
     required this.goalId,
     super.key,
+    this.initialTaskId,
   });
 
   final String goalId;
+  final String? initialTaskId;
 
   @override
   State<GoalDetailPage> createState() => _GoalDetailPageState();
@@ -41,17 +45,30 @@ class GoalDetailPage extends StatefulWidget {
 
 class _GoalDetailPageState extends State<GoalDetailPage>
     with DataRefreshListener<GoalDetailPage> {
+  final _scrollController = ScrollController();
+  final Map<String, GlobalKey> _taskKeys = {};
   Goal? _goal;
   final List<TaskItem> _tasks = [];
   final List<Goal> _goals = [];
   final List<EvolyDocument> _documents = [];
   var _loading = true;
+  var _initialTaskRevealConsumed = false;
   String? _errorMessage;
+  String? _highlightedTaskId;
+  Timer? _highlightTimer;
 
   @override
   void initState() {
     super.initState();
+    _highlightedTaskId = widget.initialTaskId;
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadDetail());
+  }
+
+  @override
+  void dispose() {
+    _highlightTimer?.cancel();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -108,40 +125,146 @@ class _GoalDetailPageState extends State<GoalDetailPage>
       );
     }
 
+    final activeTasks = _activeTasks;
+    final completedTasks = _completedTasks;
+
     return RefreshIndicator(
       onRefresh: _loadDetail,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.md,
-          AppSpacing.md,
-          AppSpacing.md,
-          AppSpacing.xxl,
-        ),
-        children: [
-          _GoalOverviewSection(
-            goal: goal,
-            progress: _calculatedProgress,
-            completedCount: _completedCount,
-            taskCount: _tasks.length,
+      child: CustomScrollView(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.md,
+              AppSpacing.md,
+              0,
+            ),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate.fixed([
+                _GoalOverviewSection(
+                  goal: goal,
+                  progress: _calculatedProgress,
+                  completedCount: _completedCount,
+                  taskCount: _tasks.length,
+                ),
+                _GoalDocumentsSection(
+                  goal: goal,
+                  documents: _documents,
+                  onOpenDocument: _openDocument,
+                  onCreateDocument: _createLinkedDocument,
+                  onCreateSummary: _createProjectSummary,
+                  onOpenFolder: _openGoalFolder,
+                ),
+                AppSectionHeader(
+                  title: '瀛愪换鍔?',
+                  trailing: TextButton.icon(
+                    onPressed: _showCreateTaskSheet,
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('鏂板'),
+                  ),
+                  padding: EdgeInsets.zero,
+                ),
+                if (_tasks.isEmpty) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  AppSurface(
+                    variant: AppSurfaceVariant.muted,
+                    padding: EdgeInsets.zero,
+                    child: EmptyState(
+                      icon: Icons.playlist_add_check_outlined,
+                      title: '\u8fd8\u6ca1\u6709\u5b50\u4efb\u52a1',
+                      message:
+                          '\u70b9\u51fb\u65b0\u589e\u521b\u5efa\u5b50\u4efb\u52a1\u3002',
+                      actionLabel: '\u65b0\u589e',
+                      onAction: _showCreateTaskSheet,
+                      compact: true,
+                    ),
+                  ),
+                ],
+              ]),
+            ),
           ),
-          _GoalDocumentsSection(
-            goal: goal,
-            documents: _documents,
-            onOpenDocument: _openDocument,
-            onCreateDocument: _createLinkedDocument,
-            onCreateSummary: _createProjectSummary,
-            onOpenFolder: _openGoalFolder,
-          ),
-          _GoalTasksSection(
-            tasks: _tasks,
-            onCreateTask: _showCreateTaskSheet,
-            onCompleteTask: _completeTask,
-            onEditTask: _showEditTaskSheet,
-            onPostponeTask: _postponeTask,
-            onDeleteTask: _deleteTask,
-          ),
+          if (activeTasks.isNotEmpty)
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    if (index == 0) {
+                      return _GoalTaskGroupHeader(
+                        title: '\u5f85\u5b8c\u6210',
+                        count: activeTasks.length,
+                        icon: Icons.radio_button_unchecked_rounded,
+                      );
+                    }
+
+                    final task = activeTasks[index - 1];
+                    return _buildTaskRow(task, completed: false);
+                  },
+                  childCount: activeTasks.length + 1,
+                ),
+              ),
+            ),
+          if (completedTasks.isNotEmpty)
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    if (index == 0) {
+                      return _GoalTaskGroupHeader(
+                        title: '\u5df2\u5b8c\u6210',
+                        count: completedTasks.length,
+                        icon: Icons.check_circle_outline_rounded,
+                        muted: true,
+                      );
+                    }
+
+                    final task = completedTasks[index - 1];
+                    return _buildTaskRow(task, completed: true);
+                  },
+                  childCount: completedTasks.length + 1,
+                ),
+              ),
+            ),
+          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl)),
         ],
       ),
+    );
+  }
+
+  List<TaskItem> get _activeTasks {
+    return _tasks.where((task) => !task.isCompleted).toList();
+  }
+
+  List<TaskItem> get _completedTasks {
+    return _tasks.where((task) => task.isCompleted).toList()
+      ..sort((left, right) {
+        final leftCompletedAt = left.completedAt;
+        final rightCompletedAt = right.completedAt;
+        if (leftCompletedAt != null && rightCompletedAt != null) {
+          return rightCompletedAt.compareTo(leftCompletedAt);
+        }
+        if (leftCompletedAt == null && rightCompletedAt != null) {
+          return 1;
+        }
+        if (leftCompletedAt != null && rightCompletedAt == null) {
+          return -1;
+        }
+        return left.createdAt.compareTo(right.createdAt);
+      });
+  }
+
+  Widget _buildTaskRow(TaskItem task, {required bool completed}) {
+    return _TaskRow(
+      itemKey: _taskKeyFor(task.id),
+      task: task,
+      highlighted: _highlightedTaskId == task.id,
+      onComplete: completed ? null : () => _completeTask(task),
+      onEdit: () => _showEditTaskSheet(task),
+      onPostpone: completed ? null : () => _postponeTask(task),
+      onDelete: () => _deleteTask(task),
     );
   }
 
@@ -191,6 +314,7 @@ class _GoalDetailPageState extends State<GoalDetailPage>
           ..addAll(results[3] as List<EvolyDocument>);
         _loading = false;
       });
+      _scheduleInitialTaskReveal();
     } catch (error) {
       if (!mounted) {
         return;
@@ -210,8 +334,13 @@ class _GoalDetailPageState extends State<GoalDetailPage>
       showDragHandle: true,
       builder: (context) {
         return TaskCreateSheet(
-          onCreate: (title, estimatedMinutes, reminder) {
-            return _createTask(title, estimatedMinutes, reminder);
+          onCreate: (title, estimatedMinutes, dueDateTime, reminder) {
+            return _createTask(
+              title,
+              estimatedMinutes,
+              dueDateTime,
+              reminder,
+            );
           },
         );
       },
@@ -347,6 +476,7 @@ class _GoalDetailPageState extends State<GoalDetailPage>
   Future<void> _createTask(
     String title,
     int estimatedMinutes,
+    DateTime? dueDateTime,
     TaskReminderSelection reminder,
   ) async {
     final goal = _goal;
@@ -364,7 +494,7 @@ class _GoalDetailPageState extends State<GoalDetailPage>
       priority: goal.priority,
       status: TaskStatus.pending,
       estimatedMinutes: estimatedMinutes.clamp(1, 1440),
-      dueDateTime: DateTime(now.year, now.month, now.day, 23, 59),
+      dueDateTime: dueDateTime,
       createdAt: now,
       updatedAt: now,
     );
@@ -601,6 +731,78 @@ class _GoalDetailPageState extends State<GoalDetailPage>
         SnackBar(content: Text('保存失败：$error')),
       );
     }
+  }
+
+  GlobalKey? _taskKeyFor(String taskId) {
+    if (taskId != widget.initialTaskId && taskId != _highlightedTaskId) {
+      return null;
+    }
+
+    return _taskKeys.putIfAbsent(taskId, GlobalKey.new);
+  }
+
+  void _scheduleInitialTaskReveal() {
+    final taskId = widget.initialTaskId;
+    if (taskId == null || _initialTaskRevealConsumed) {
+      return;
+    }
+    if (!_tasks.any((task) => task.id == taskId)) {
+      return;
+    }
+
+    _initialTaskRevealConsumed = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+
+      final rowContext = _taskKeys[taskId]?.currentContext;
+      if (rowContext != null) {
+        Scrollable.ensureVisible(
+          rowContext,
+          alignment: 0.36,
+          duration: MotionTokens.normal,
+          curve: MotionTokens.standard,
+        );
+      } else {
+        final taskIndex = _presentedTaskIndex(taskId);
+        if (taskIndex != -1 && _scrollController.hasClients) {
+          final estimatedOffset = 520 + taskIndex * 96.0;
+          _scrollController.animateTo(
+            estimatedOffset.clamp(
+              0,
+              _scrollController.position.maxScrollExtent,
+            ),
+            duration: MotionTokens.normal,
+            curve: MotionTokens.standard,
+          );
+        }
+      }
+
+      _highlightTimer?.cancel();
+      _highlightTimer = Timer(const Duration(milliseconds: 2600), () {
+        if (!mounted || _highlightedTaskId != taskId) {
+          return;
+        }
+        setState(() => _highlightedTaskId = null);
+      });
+    });
+  }
+
+  int _presentedTaskIndex(String taskId) {
+    final activeTasks = _activeTasks;
+    final activeIndex = activeTasks.indexWhere((task) => task.id == taskId);
+    if (activeIndex != -1) {
+      return activeIndex;
+    }
+
+    final completedIndex =
+        _completedTasks.indexWhere((task) => task.id == taskId);
+    if (completedIndex == -1) {
+      return -1;
+    }
+
+    return activeTasks.length + completedIndex;
   }
 
   String _projectTitleFor(String goalId) {
@@ -846,6 +1048,7 @@ class _GoalDocumentsSection extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _GoalTasksSection extends StatelessWidget {
   const _GoalTasksSection({
     required this.tasks,
@@ -854,6 +1057,8 @@ class _GoalTasksSection extends StatelessWidget {
     required this.onEditTask,
     required this.onPostponeTask,
     required this.onDeleteTask,
+    required this.highlightedTaskId,
+    required this.taskKeyFor,
   });
 
   final List<TaskItem> tasks;
@@ -862,6 +1067,8 @@ class _GoalTasksSection extends StatelessWidget {
   final ValueChanged<TaskItem> onEditTask;
   final ValueChanged<TaskItem> onPostponeTask;
   final ValueChanged<TaskItem> onDeleteTask;
+  final String? highlightedTaskId;
+  final GlobalKey Function(String taskId) taskKeyFor;
 
   @override
   Widget build(BuildContext context) {
@@ -914,7 +1121,9 @@ class _GoalTasksSection extends StatelessWidget {
                   ),
                   for (final task in activeTasks)
                     _TaskRow(
+                      itemKey: taskKeyFor(task.id),
                       task: task,
+                      highlighted: highlightedTaskId == task.id,
                       onComplete: () => onCompleteTask(task),
                       onEdit: () => onEditTask(task),
                       onPostpone: () => onPostponeTask(task),
@@ -930,7 +1139,9 @@ class _GoalTasksSection extends StatelessWidget {
                   ),
                   for (final task in completedTasks)
                     _TaskRow(
+                      itemKey: taskKeyFor(task.id),
                       task: task,
+                      highlighted: highlightedTaskId == task.id,
                       onEdit: () => onEditTask(task),
                       onDelete: () => onDeleteTask(task),
                     ),
@@ -994,21 +1205,28 @@ class _GoalTaskGroupHeader extends StatelessWidget {
 
 class _TaskRow extends StatelessWidget {
   const _TaskRow({
+    required this.itemKey,
     required this.task,
     required this.onDelete,
     required this.onEdit,
+    required this.highlighted,
     this.onComplete,
     this.onPostpone,
   });
 
+  final GlobalKey? itemKey;
   final TaskItem task;
   final VoidCallback onEdit;
   final VoidCallback? onComplete;
   final VoidCallback? onPostpone;
   final VoidCallback onDelete;
+  final bool highlighted;
 
   @override
   Widget build(BuildContext context) {
+    final tokens = EvolyDesignTokens.of(context);
+    final accent = tokens.hudAccent;
+
     return Dismissible(
       key: ValueKey(task.id),
       direction: DismissDirection.endToStart,
@@ -1025,36 +1243,73 @@ class _TaskRow extends StatelessWidget {
         onDelete();
         return false;
       },
-      child: InkWell(
-        onTap: onEdit,
-        child: TaskCard(
-          task: task,
-          onComplete: onComplete,
-          margin: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-          trailing: PopupMenuButton<_TaskAction>(
-            onSelected: (action) {
-              switch (action) {
-                case _TaskAction.edit:
-                  onEdit();
-                case _TaskAction.postpone:
-                  onPostpone?.call();
-                case _TaskAction.delete:
-                  onDelete();
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: _TaskAction.edit,
-                child: Text('编辑'),
+      child: KeyedSubtree(
+        key: itemKey,
+        child: AnimatedContainer(
+          duration: MotionTokens.normal,
+          curve: MotionTokens.standard,
+          decoration: BoxDecoration(
+            color: highlighted
+                ? accent.withValues(alpha: 0.12)
+                : Colors.transparent,
+            border: Border.all(
+              color: highlighted
+                  ? accent.withValues(alpha: 0.62)
+                  : Colors.transparent,
+              width: 1.5,
+            ),
+            borderRadius: BorderRadius.circular(AppRadii.container),
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                left: 0,
+                top: AppSpacing.xs,
+                bottom: AppSpacing.xs,
+                child: AnimatedContainer(
+                  duration: MotionTokens.normal,
+                  curve: MotionTokens.standard,
+                  width: highlighted ? 4 : 0,
+                  decoration: BoxDecoration(
+                    color: accent,
+                    borderRadius: BorderRadius.circular(AppRadii.pill),
+                  ),
+                ),
               ),
-              PopupMenuItem(
-                value: _TaskAction.postpone,
-                enabled: onPostpone != null,
-                child: const Text('延期到明天'),
-              ),
-              const PopupMenuItem(
-                value: _TaskAction.delete,
-                child: Text('删除'),
+              InkWell(
+                onTap: onEdit,
+                child: TaskCard(
+                  task: task,
+                  onComplete: onComplete,
+                  margin: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+                  trailing: PopupMenuButton<_TaskAction>(
+                    onSelected: (action) {
+                      switch (action) {
+                        case _TaskAction.edit:
+                          onEdit();
+                        case _TaskAction.postpone:
+                          onPostpone?.call();
+                        case _TaskAction.delete:
+                          onDelete();
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: _TaskAction.edit,
+                        child: Text('编辑'),
+                      ),
+                      PopupMenuItem(
+                        value: _TaskAction.postpone,
+                        enabled: onPostpone != null,
+                        child: const Text('延期到明天'),
+                      ),
+                      const PopupMenuItem(
+                        value: _TaskAction.delete,
+                        child: Text('删除'),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),

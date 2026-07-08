@@ -6,6 +6,7 @@ import 'package:evoly/features/goals/domain/goal.dart';
 import 'package:evoly/features/reminders/domain/reminder.dart';
 import 'package:evoly/features/reminders/presentation/task_reminder_picker.dart';
 import 'package:evoly/features/tasks/domain/task_item.dart';
+import 'package:evoly/features/tasks/presentation/widgets/task_due_picker.dart';
 import 'package:evoly/shared/ui/bottom_sheets/adaptive_form_modal.dart';
 import 'package:evoly/shared/ui/bottom_sheets/bottom_sheet_form_layout.dart';
 import 'package:evoly/shared/ui/components/app_components.dart';
@@ -20,6 +21,7 @@ class TaskEditSheet extends StatefulWidget {
     required this.reminder,
     required this.onSave,
     this.availableGoals = const [],
+    this.customDueDateTimePicker = showTaskDueDateTimePicker,
     super.key,
   });
 
@@ -27,6 +29,7 @@ class TaskEditSheet extends StatefulWidget {
   final TaskItem task;
   final Reminder? reminder;
   final List<Goal> availableGoals;
+  final TaskDueDateTimePicker customDueDateTimePicker;
   final Future<void> Function(
     TaskItem updatedTask,
     TaskReminderSelection reminder,
@@ -39,7 +42,6 @@ class TaskEditSheet extends StatefulWidget {
 class _TaskEditSheetState extends State<TaskEditSheet> {
   late final TextEditingController _titleController;
   late final TextEditingController _descriptionController;
-  late final TextEditingController _minutesController;
   late TaskItem _task;
 
   late Priority _selectedPriority;
@@ -63,18 +65,14 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
     _descriptionController = TextEditingController(
       text: _task.description,
     );
-    _minutesController = TextEditingController(
-      text: _task.estimatedMinutes.toString(),
-    );
     _selectedGoalId = _task.goalId;
     _selectedPriority = _task.priority;
-    _selectedStatus = _task.status;
+    _selectedStatus = _task.effectiveStatus(DateTime.now());
     _selectedDueDateTime = _task.dueDateTime;
     _selectedReminder = TaskReminderSelection.fromReminder(widget.reminder);
     _lastSavedSignature = _signatureFor(_task, _selectedReminder);
     _titleController.addListener(_scheduleSave);
     _descriptionController.addListener(_scheduleSave);
-    _minutesController.addListener(_scheduleSave);
   }
 
   @override
@@ -82,10 +80,8 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
     _saveDebounce?.cancel();
     _titleController.removeListener(_scheduleSave);
     _descriptionController.removeListener(_scheduleSave);
-    _minutesController.removeListener(_scheduleSave);
     _titleController.dispose();
     _descriptionController.dispose();
-    _minutesController.dispose();
     super.dispose();
   }
 
@@ -158,47 +154,12 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
             onChanged: _changeStatus,
           ),
           AppField(
-            label: '预计耗时（分钟）',
-            child: TextField(
-              controller: _minutesController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(),
-            ),
-          ),
-          AppField(
             label: '截止时间',
-            child: SegmentedButton<_DueOption>(
-              segments: const [
-                ButtonSegment(value: _DueOption.today, label: Text('今天')),
-                ButtonSegment(
-                  value: _DueOption.tomorrow,
-                  label: Text('明天'),
-                ),
-                ButtonSegment(value: _DueOption.none, label: Text('不设')),
-              ],
-              selected: {_dueOptionFor(_selectedDueDateTime)},
-              onSelectionChanged: (values) {
-                final option = values.first;
-                final now = DateTime.now();
-                setState(() {
-                  _selectedDueDateTime = switch (option) {
-                    _DueOption.today => DateTime(
-                        now.year,
-                        now.month,
-                        now.day,
-                        23,
-                        59,
-                      ),
-                    _DueOption.tomorrow => DateTime(
-                        now.year,
-                        now.month,
-                        now.day,
-                        23,
-                        59,
-                      ).add(const Duration(days: 1)),
-                    _DueOption.none => null,
-                  };
-                });
+            child: TaskDuePicker(
+              dueDateTime: _selectedDueDateTime,
+              customPicker: widget.customDueDateTimePicker,
+              onChanged: (value) {
+                setState(() => _selectedDueDateTime = value);
                 _scheduleSave();
               },
             ),
@@ -327,7 +288,6 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
   }
 
   TaskItem _buildUpdatedTask(String title) {
-    final estimatedMinutes = int.tryParse(_minutesController.text.trim()) ?? 30;
     final now = DateTime.now();
     return _task.copyWith(
       goalId: _selectedGoalId,
@@ -335,7 +295,7 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
       description: _descriptionController.text.trim(),
       priority: _selectedPriority,
       status: _selectedStatus,
-      estimatedMinutes: estimatedMinutes.clamp(1, 1440),
+      estimatedMinutes: _task.estimatedMinutes,
       dueDateTime: _selectedDueDateTime,
       completedAt: _selectedStatus == TaskStatus.completed
           ? _task.completedAt ?? now
@@ -789,30 +749,4 @@ class _AutoSaveStatus extends StatelessWidget {
       ),
     );
   }
-}
-
-enum _DueOption {
-  today,
-  tomorrow,
-  none,
-}
-
-_DueOption _dueOptionFor(DateTime? dueDateTime) {
-  if (dueDateTime == null) {
-    return _DueOption.none;
-  }
-
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
-  final dueDate = DateTime(
-    dueDateTime.year,
-    dueDateTime.month,
-    dueDateTime.day,
-  );
-
-  if (dueDate == today) {
-    return _DueOption.today;
-  }
-
-  return _DueOption.tomorrow;
 }

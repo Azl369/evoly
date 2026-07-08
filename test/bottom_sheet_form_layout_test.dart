@@ -70,7 +70,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  test('bottom sheet keyboard focus starts before entrance fully settles', () {
+  test('keyboard focus is immediate on Android form route', () {
     expect(
       bottomSheetKeyboardFocusDelay,
       lessThan(const Duration(milliseconds: 180)),
@@ -132,6 +132,8 @@ void main() {
 
     expect(find.byType(Scaffold), findsOneWidget);
     expect(find.byIcon(Icons.close_rounded), findsOneWidget);
+    final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+    expect(scaffold.resizeToAvoidBottomInset, isFalse);
     expect(find.text('Legacy form content'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -155,6 +157,8 @@ void main() {
 
     expect(find.byType(Scaffold), findsOneWidget);
     expect(find.byType(ResponsiveBottomSheetBody), findsNothing);
+    final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+    expect(scaffold.resizeToAvoidBottomInset, isFalse);
     expect(find.text('Create goal'), findsOneWidget);
     expect(find.text('Create action'), findsOneWidget);
     expect(find.text('Goal field'), findsOneWidget);

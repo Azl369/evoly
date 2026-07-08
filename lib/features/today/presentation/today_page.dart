@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
@@ -47,10 +48,13 @@ class TodayPage extends StatefulWidget {
 
 class _TodayPageState extends State<TodayPage>
     with DataRefreshListener<TodayPage> {
+  static const _inlineReorderGroupLimit = 80;
+
   final _desktopTaskScrollController = ScrollController();
   final _desktopOverviewScrollController = ScrollController();
   final List<TaskItem> _tasks = [];
   final List<Goal> _goals = [];
+  final Set<String> _collapsedTaskSectionIds = {};
   DesktopWindowController? _desktopWindowController;
   var _loading = true;
   var _coachExpanded = true;
@@ -140,22 +144,66 @@ class _TodayPageState extends State<TodayPage>
       );
     }
 
-    final taskGroups = _taskGroups;
+    final taskSections = _taskSections;
 
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth >= 900) {
-          return _buildDesktopBody(progress, taskGroups, constraints.maxWidth);
+          return _buildDesktopBody(
+            progress,
+            taskSections,
+            constraints.maxWidth,
+          );
         }
 
-        return _buildMobileBody(progress, taskGroups);
+        return _buildMobileBodyLazy(progress, taskSections);
       },
     );
   }
 
+  Widget _buildMobileBodyLazy(
+    double progress,
+    List<_TaskSection> taskSections,
+  ) {
+    final taskItems = _buildTaskSectionItems(taskSections);
+
+    return SyncRefreshIndicator(
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        scrollCacheExtent: const ScrollCacheExtent.pixels(720),
+        padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+        itemCount: _tasks.isEmpty ? 3 : taskItems.length + 2,
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return _buildTodayOverview(progress);
+          }
+
+          if (index == 1) {
+            return _buildTaskSectionHeader();
+          }
+
+          if (_tasks.isEmpty) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              child: EmptyState(
+                icon: Icons.task_alt_outlined,
+                title: '\u6682\u65f6\u6ca1\u6709\u5f85\u63a8\u8fdb\u4efb\u52a1',
+                message:
+                    '\u53bb\u9879\u76ee\u9875\u521b\u5efa\u9879\u76ee\u6216\u5b50\u4efb\u52a1\u3002',
+              ),
+            );
+          }
+
+          return _buildTaskListItem(taskItems[index - 2]);
+        },
+      ),
+    );
+  }
+
+  // ignore: unused_element
   Widget _buildMobileBody(
     double progress,
-    List<_TaskGroup> taskGroups,
+    List<_TaskSection> taskSections,
   ) {
     return SyncRefreshIndicator(
       child: ListView(
@@ -175,7 +223,7 @@ class _TodayPageState extends State<TodayPage>
               ),
             )
           else
-            ..._buildTaskGroupWidgets(taskGroups),
+            ..._buildTaskSectionWidgets(taskSections),
         ],
       ),
     );
@@ -183,7 +231,7 @@ class _TodayPageState extends State<TodayPage>
 
   Widget _buildDesktopBody(
     double progress,
-    List<_TaskGroup> taskGroups,
+    List<_TaskSection> taskSections,
     double maxWidth,
   ) {
     final sideWidth = maxWidth >= 1180 ? 392.0 : 348.0;
@@ -194,7 +242,7 @@ class _TodayPageState extends State<TodayPage>
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: _buildDesktopTaskPane(taskGroups)),
+            Expanded(child: _buildDesktopTaskPaneLazy(taskSections)),
             const SizedBox(width: AppSpacing.lg),
             SizedBox(
               width: sideWidth,
@@ -213,7 +261,49 @@ class _TodayPageState extends State<TodayPage>
     );
   }
 
-  Widget _buildDesktopTaskPane(List<_TaskGroup> taskGroups) {
+  Widget _buildDesktopTaskPaneLazy(List<_TaskSection> taskSections) {
+    final taskItems = _buildTaskSectionItems(taskSections);
+
+    return Scrollbar(
+      controller: _desktopTaskScrollController,
+      child: ListView.builder(
+        controller: _desktopTaskScrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        scrollCacheExtent: const ScrollCacheExtent.pixels(720),
+        padding: EdgeInsets.zero,
+        itemCount: _tasks.isEmpty ? 2 : taskItems.length + 1,
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildTaskSectionHeader(compact: true),
+                const SizedBox(height: AppSpacing.xs),
+              ],
+            );
+          }
+
+          if (_tasks.isEmpty) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              child: EmptyState(
+                icon: Icons.task_alt_outlined,
+                title: '\u6682\u65f6\u6ca1\u6709\u5f85\u63a8\u8fdb\u4efb\u52a1',
+                message:
+                    '\u53bb\u9879\u76ee\u9875\u521b\u5efa\u9879\u76ee\u6216\u5b50\u4efb\u52a1\u3002',
+                compact: true,
+              ),
+            );
+          }
+
+          return _buildTaskListItem(taskItems[index - 1]);
+        },
+      ),
+    );
+  }
+
+  // ignore: unused_element
+  Widget _buildDesktopTaskPane(List<_TaskSection> taskSections) {
     return Scrollbar(
       controller: _desktopTaskScrollController,
       child: ListView(
@@ -235,7 +325,7 @@ class _TodayPageState extends State<TodayPage>
               ),
             )
           else
-            ..._buildTaskGroupWidgets(taskGroups),
+            ..._buildTaskSectionWidgets(taskSections),
         ],
       ),
     );
@@ -270,6 +360,7 @@ class _TodayPageState extends State<TodayPage>
   Widget _buildTodayOverview(double progress) {
     final textTheme = Theme.of(context).textTheme;
     final tokens = EvolyDesignTokens.of(context);
+    final now = DateTime.now();
     final completedCount = _tasks.where((task) => task.isCompleted).length;
     final pendingTasks = _tasks.where((task) => !task.isCompleted).toList();
     final pendingCount = pendingTasks.length;
@@ -278,8 +369,11 @@ class _TodayPageState extends State<TodayPage>
       (sum, task) => sum + task.estimatedMinutes,
     );
     final progressPercent = (progress * 100).round();
+    final delayedCount = pendingTasks.where((task) {
+      return _belongsToDelayedSection(task, now);
+    }).length;
     final dueCount = pendingTasks.where((task) {
-      return _belongsToDueSection(task, DateTime.now());
+      return _belongsToDueSection(task, now);
     }).length;
     final unscheduledCount =
         pendingTasks.where((task) => task.dueDateTime == null).length;
@@ -332,6 +426,12 @@ class _TodayPageState extends State<TodayPage>
                   runSpacing: AppSpacing.xs,
                   children: [
                     AppMetaPill(
+                      label: '$delayedCount 已延期',
+                      icon: Icons.warning_amber_rounded,
+                      color: Theme.of(context).colorScheme.error,
+                      selected: delayedCount > 0,
+                    ),
+                    AppMetaPill(
                       label: '$dueCount 今日到期',
                       icon: Icons.event_available_outlined,
                       color: tokens.statusWarning,
@@ -382,28 +482,136 @@ class _TodayPageState extends State<TodayPage>
     );
   }
 
+  List<_TodayTaskListItem> _buildTaskSectionItems(List<_TaskSection> sections) {
+    final items = <_TodayTaskListItem>[];
+
+    for (final section in sections) {
+      items.add(_TodayTaskListItem.section(section));
+      if (_collapsedTaskSectionIds.contains(section.id)) {
+        continue;
+      }
+
+      for (final group in section.groups) {
+        if (group.title.isNotEmpty) {
+          items.add(_TodayTaskListItem.groupHeader(group));
+        }
+
+        final useInlineReorderGroup = group.reorderable &&
+            group.priority != null &&
+            group.tasks.length <= _inlineReorderGroupLimit;
+        if (useInlineReorderGroup) {
+          items.add(_TodayTaskListItem.reorderGroup(group));
+        } else {
+          for (final task in group.tasks) {
+            items.add(_TodayTaskListItem.task(group, task));
+          }
+        }
+      }
+    }
+
+    return items;
+  }
+
+  Widget _buildTaskListItem(_TodayTaskListItem item) {
+    final section = item.section;
+    if (section != null) {
+      return _CollapsibleTaskSectionHeader(
+        key: ValueKey('task-section-header-${section.id}'),
+        title: section.title,
+        subtitle: section.subtitle,
+        count: section.taskCount,
+        expanded: !_collapsedTaskSectionIds.contains(section.id),
+        onTap: () => _toggleTaskSection(section.id),
+      );
+    }
+
+    final group = item.group;
+    if (group == null) {
+      return const SizedBox.shrink();
+    }
+
+    switch (item.type) {
+      case _TodayTaskListItemType.groupHeader:
+        return Padding(
+          key: ValueKey('task-group-header-${group.id}'),
+          padding: EdgeInsets.zero,
+          child: _PriorityGroupHeader(
+            title: group.title,
+            priority: group.priority,
+          ),
+        );
+      case _TodayTaskListItemType.reorderGroup:
+        return _AnimatedTaskReorderGroup(
+          key: ValueKey('task-group-${group.id}'),
+          tasks: group.tasks,
+          onReorder: (oldIndex, newIndex) {
+            _reorderTaskGroup(
+              group.tasks,
+              group.priority!,
+              oldIndex,
+              newIndex,
+            );
+          },
+          rowBuilder: (task, callbacks, dragging) => _buildTaskRow(
+            task,
+            key: ValueKey('task-row-${group.id}-${task.id}'),
+            reorderable: group.tasks.length > 1,
+            reorderDragCallbacks: callbacks,
+            reorderDragging: dragging,
+          ),
+        );
+      case _TodayTaskListItemType.task:
+        final task = item.task;
+        if (task == null) {
+          return const SizedBox.shrink();
+        }
+
+        return _buildTaskRow(task);
+      case _TodayTaskListItemType.section:
+        return const SizedBox.shrink();
+    }
+  }
+
+  // ignore: unused_element
+  List<Widget> _buildTaskSectionWidgets(List<_TaskSection> sections) {
+    return [
+      for (final section in sections) ...[
+        _CollapsibleTaskSectionHeader(
+          key: ValueKey('task-section-header-${section.id}'),
+          title: section.title,
+          subtitle: section.subtitle,
+          count: section.taskCount,
+          expanded: !_collapsedTaskSectionIds.contains(section.id),
+          onTap: () => _toggleTaskSection(section.id),
+        ),
+        AnimatedSize(
+          key: ValueKey('task-section-body-${section.id}'),
+          duration: MotionTokens.normal,
+          curve: MotionTokens.standard,
+          alignment: Alignment.topCenter,
+          child: _collapsedTaskSectionIds.contains(section.id)
+              ? const SizedBox.shrink()
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: _buildTaskGroupWidgets(section.groups),
+                ),
+        ),
+      ],
+    ];
+  }
+
   List<Widget> _buildTaskGroupWidgets(List<_TaskGroup> groups) {
     return [
       for (final group in groups) ...[
-        Padding(
-          key: ValueKey('task-group-header-${group.id}'),
-          padding: EdgeInsets.zero,
-          child: group.section
-              ? AppSectionHeader(
-                  title: group.title,
-                  subtitle: group.subtitle,
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.md,
-                    AppSpacing.md,
-                    AppSpacing.md,
-                    AppSpacing.xs,
-                  ),
-                )
-              : _PriorityGroupHeader(
-                  title: group.title,
-                  priority: group.priority,
-                ),
-        ),
+        if (group.title.isNotEmpty)
+          Padding(
+            key: ValueKey('task-group-header-${group.id}'),
+            padding: EdgeInsets.zero,
+            child: _PriorityGroupHeader(
+              title: group.title,
+              priority: group.priority,
+            ),
+          ),
         if (group.reorderable && group.priority != null)
           _AnimatedTaskReorderGroup(
             key: ValueKey('task-group-${group.id}'),
@@ -451,16 +659,83 @@ class _TodayPageState extends State<TodayPage>
     );
   }
 
+  void _toggleTaskSection(String sectionId) {
+    setState(() {
+      if (!_collapsedTaskSectionIds.add(sectionId)) {
+        _collapsedTaskSectionIds.remove(sectionId);
+      }
+    });
+  }
+
+  List<_TaskSection> get _taskSections {
+    final sections = <_TaskSection>[];
+    _TaskGroup? currentHeader;
+    var currentGroups = <_TaskGroup>[];
+
+    void flushCurrentSection() {
+      final header = currentHeader;
+      if (header == null) {
+        return;
+      }
+
+      sections.add(
+        _TaskSection(
+          id: header.id,
+          title: header.title,
+          subtitle: header.subtitle,
+          groups: List.unmodifiable(currentGroups),
+        ),
+      );
+    }
+
+    for (final group in _taskGroups) {
+      if (group.section) {
+        flushCurrentSection();
+        currentHeader = group;
+        currentGroups = [
+          if (group.tasks.isNotEmpty)
+            _TaskGroup(
+              id: '${group.id}-items',
+              title: '',
+              tasks: group.tasks,
+            ),
+        ];
+        continue;
+      }
+
+      currentGroups.add(group);
+    }
+
+    flushCurrentSection();
+    return sections;
+  }
+
   List<_TaskGroup> get _taskGroups {
     final now = DateTime.now();
     final pending = _sortedTasks.where((task) => !task.isCompleted).toList();
     final completedTodayTasks = _sortedCompletedTodayTasks(now);
+    final delayedTasks =
+        pending.where((task) => _belongsToDelayedSection(task, now)).toList();
     final dueTasks =
         pending.where((task) => _belongsToDueSection(task, now)).toList();
-    final unscheduledTasks =
-        pending.where((task) => task.dueDateTime == null).toList();
+    final unscheduledTasks = pending
+        .where(
+          (task) =>
+              task.dueDateTime == null && !_belongsToDelayedSection(task, now),
+        )
+        .toList();
 
     return [
+      if (delayedTasks.isNotEmpty) ...[
+        const _TaskGroup(
+          id: 'delayed',
+          title: '已延期',
+          subtitle: '已经延期或超过截止时间，建议优先处理',
+          tasks: [],
+          section: true,
+        ),
+        ..._priorityGroups(delayedTasks, sectionId: 'delayed'),
+      ],
       if (dueTasks.isNotEmpty) ...[
         const _TaskGroup(
           id: 'due',
@@ -582,7 +857,15 @@ class _TodayPageState extends State<TodayPage>
     return '项目：$title';
   }
 
+  bool _belongsToDelayedSection(TaskItem task, DateTime now) {
+    return task.effectiveStatus(now) == TaskStatus.postponed;
+  }
+
   bool _belongsToDueSection(TaskItem task, DateTime now) {
+    if (task.effectiveStatus(now) == TaskStatus.postponed) {
+      return false;
+    }
+
     final dueDate = task.dueDateTime;
     if (dueDate == null) {
       return false;
@@ -590,7 +873,7 @@ class _TodayPageState extends State<TodayPage>
 
     final start = DateTime(now.year, now.month, now.day);
     final end = start.add(const Duration(days: 1));
-    return dueDate.isBefore(end);
+    return !dueDate.isBefore(start) && dueDate.isBefore(end);
   }
 
   bool _belongsToPlan(TaskItem task, DateTime now) {
@@ -602,7 +885,9 @@ class _TodayPageState extends State<TodayPage>
       return _isCompletedToday(task, now);
     }
 
-    return task.dueDateTime == null || _belongsToDueSection(task, now);
+    return task.dueDateTime == null ||
+        _belongsToDelayedSection(task, now) ||
+        _belongsToDueSection(task, now);
   }
 
   bool _isCompletedToday(TaskItem task, DateTime now) {
@@ -952,7 +1237,30 @@ class _TodayPageState extends State<TodayPage>
       return;
     }
 
-    await _showEditTaskSheet(task);
+    final goal = _goals.where((goal) => goal.id == task.goalId).firstOrNull ??
+        await context.read<GoalRepository>().findById(task.goalId);
+    if (!mounted) {
+      return;
+    }
+
+    if (goal == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('这个任务的所属项目暂未同步，请在计划列表中查看。')),
+      );
+      return;
+    }
+
+    await Navigator.pushNamed(
+      context,
+      AppRoutes.goalDetail,
+      arguments: GoalDetailRouteArguments(
+        goalId: task.goalId,
+        initialTaskId: task.id,
+      ),
+    );
+    if (mounted) {
+      await _loadTasks();
+    }
   }
 
   void _openFirstDelayedGoal() {
@@ -1359,7 +1667,7 @@ class _CoachAdjustmentDraftDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Coach 调整草案'),
+      title: const Text('Compass \u8c03\u6574\u8349\u6848'),
       content: SizedBox(
         width: 520,
         child: SingleChildScrollView(
@@ -1542,6 +1850,72 @@ class _PriorityDot extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(top: 5),
       child: Icon(Icons.circle, size: 10, color: color),
+    );
+  }
+}
+
+class _CollapsibleTaskSectionHeader extends StatelessWidget {
+  const _CollapsibleTaskSectionHeader({
+    required super.key,
+    required this.title,
+    required this.count,
+    required this.expanded,
+    required this.onTap,
+    this.subtitle,
+  });
+
+  final String title;
+  final String? subtitle;
+  final int count;
+  final bool expanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Semantics(
+      button: true,
+      toggled: expanded,
+      label: expanded ? '收起$title' : '展开$title',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: AppSectionHeader(
+            title: title,
+            subtitle: subtitle,
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.md,
+              AppSpacing.md,
+              AppSpacing.xs,
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppMetaPill(
+                  label: '$count 项',
+                  icon: Icons.list_alt_rounded,
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Tooltip(
+                  message: expanded ? '收起' : '展开',
+                  child: AnimatedRotation(
+                    turns: expanded ? 0.5 : 0,
+                    duration: MotionTokens.fast,
+                    curve: MotionTokens.standard,
+                    child: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1981,9 +2355,14 @@ class _TodayTaskRow extends StatelessWidget {
         ),
       ),
     );
+    final reorderContent = _LongPressReorderSurface(
+      enabled: reorderable,
+      callbacks: reorderDragCallbacks,
+      child: taskContent,
+    );
 
     if (reorderable) {
-      return taskContent;
+      return reorderContent;
     }
 
     return Dismissible(
@@ -2002,7 +2381,57 @@ class _TodayTaskRow extends StatelessWidget {
         onDelete();
         return false;
       },
-      child: taskContent,
+      child: reorderContent,
+    );
+  }
+}
+
+class _LongPressReorderSurface extends StatefulWidget {
+  const _LongPressReorderSurface({
+    required this.enabled,
+    required this.callbacks,
+    required this.child,
+  });
+
+  final bool enabled;
+  final _ReorderDragCallbacks? callbacks;
+  final Widget child;
+
+  @override
+  State<_LongPressReorderSurface> createState() =>
+      _LongPressReorderSurfaceState();
+}
+
+class _LongPressReorderSurfaceState extends State<_LongPressReorderSurface> {
+  var _lastDragOffset = 0.0;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.enabled || widget.callbacks == null) {
+      return widget.child;
+    }
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onLongPressStart: (_) {
+        _lastDragOffset = 0;
+        Feedback.forLongPress(context);
+        widget.callbacks?.onStart();
+      },
+      onLongPressMoveUpdate: (details) {
+        final nextOffset = details.offsetFromOrigin.dy;
+        widget.callbacks?.onUpdate(nextOffset - _lastDragOffset);
+        _lastDragOffset = nextOffset;
+      },
+      onLongPressEnd: (_) {
+        _lastDragOffset = 0;
+        widget.callbacks?.onEnd();
+      },
+      onLongPressCancel: () {
+        _lastDragOffset = 0;
+        widget.callbacks?.onCancel();
+      },
+      child: widget.child,
     );
   }
 }
@@ -2024,24 +2453,29 @@ class _TaskRowTrailing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final menu = PopupMenuButton<_TodayTaskAction>(
-      tooltip: 'More',
-      onSelected: onActionSelected,
-      itemBuilder: (context) => [
-        const PopupMenuItem(
-          value: _TodayTaskAction.edit,
-          child: Text('Edit'),
-        ),
-        PopupMenuItem(
-          value: _TodayTaskAction.postpone,
-          enabled: canPostpone,
-          child: const Text('Postpone'),
-        ),
-        const PopupMenuItem(
-          value: _TodayTaskAction.delete,
-          child: Text('Delete'),
-        ),
-      ],
+    final menu = SizedBox.square(
+      dimension: 40,
+      child: PopupMenuButton<_TodayTaskAction>(
+        tooltip: '更多',
+        padding: EdgeInsets.zero,
+        iconSize: 22,
+        onSelected: onActionSelected,
+        itemBuilder: (context) => [
+          const PopupMenuItem(
+            value: _TodayTaskAction.edit,
+            child: Text('编辑'),
+          ),
+          PopupMenuItem(
+            value: _TodayTaskAction.postpone,
+            enabled: canPostpone,
+            child: const Text('延期'),
+          ),
+          const PopupMenuItem(
+            value: _TodayTaskAction.delete,
+            child: Text('删除'),
+          ),
+        ],
+      ),
     );
 
     if (!reorderable) {
@@ -2082,40 +2516,39 @@ class _DragMoveHandleState extends State<_DragMoveHandle> {
     final color =
         widget.dragging ? tokens.hudAccent : colorScheme.onSurfaceVariant;
 
-    return Tooltip(
-      message: 'Drag to reorder',
-      child: MouseRegion(
-        cursor: widget.dragging
-            ? SystemMouseCursors.grabbing
-            : SystemMouseCursors.grab,
-        child: Listener(
-          onPointerDown: (_) {
-            widget.callbacks?.onStart();
-          },
-          onPointerMove: (event) {
-            widget.callbacks?.onUpdate(event.delta.dy);
-          },
-          onPointerUp: (_) {
-            widget.callbacks?.onEnd();
-          },
-          onPointerCancel: (_) {
-            widget.callbacks?.onCancel();
-          },
-          child: AnimatedContainer(
-            duration: MotionTokens.fast,
-            curve: MotionTokens.standard,
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: widget.dragging
-                  ? tokens.hudAccent.withValues(alpha: 0.12)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(AppRadii.element),
-            ),
-            child: Icon(
-              Icons.drag_indicator_rounded,
-              color: color,
-            ),
+    return MouseRegion(
+      cursor: widget.dragging
+          ? SystemMouseCursors.grabbing
+          : SystemMouseCursors.grab,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        dragStartBehavior: DragStartBehavior.down,
+        onVerticalDragStart: (_) {
+          widget.callbacks?.onStart();
+        },
+        onVerticalDragUpdate: (details) {
+          widget.callbacks?.onUpdate(details.primaryDelta ?? 0);
+        },
+        onVerticalDragEnd: (_) {
+          widget.callbacks?.onEnd();
+        },
+        onVerticalDragCancel: () {
+          widget.callbacks?.onCancel();
+        },
+        child: AnimatedContainer(
+          duration: MotionTokens.fast,
+          curve: MotionTokens.standard,
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: widget.dragging
+                ? tokens.hudAccent.withValues(alpha: 0.12)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppRadii.element),
+          ),
+          child: Icon(
+            Icons.drag_indicator_rounded,
+            color: color,
           ),
         ),
       ),
@@ -2202,7 +2635,7 @@ class _CoachInsightCard extends StatelessWidget {
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: Text(
-                          'Evoly Coach 今日建议',
+                          'Evoly Compass',
                           style: textTheme.titleMedium?.copyWith(
                             color: colorScheme.onSurface,
                             fontWeight: FontWeight.w700,
@@ -2628,6 +3061,56 @@ class _CoachSuggestionTile extends StatelessWidget {
   }
 }
 
+enum _TodayTaskListItemType {
+  section,
+  groupHeader,
+  reorderGroup,
+  task,
+}
+
+class _TodayTaskListItem {
+  const _TodayTaskListItem._({
+    required this.type,
+    this.section,
+    this.group,
+    this.task,
+  });
+
+  factory _TodayTaskListItem.section(_TaskSection section) {
+    return _TodayTaskListItem._(
+      type: _TodayTaskListItemType.section,
+      section: section,
+    );
+  }
+
+  factory _TodayTaskListItem.groupHeader(_TaskGroup group) {
+    return _TodayTaskListItem._(
+      type: _TodayTaskListItemType.groupHeader,
+      group: group,
+    );
+  }
+
+  factory _TodayTaskListItem.reorderGroup(_TaskGroup group) {
+    return _TodayTaskListItem._(
+      type: _TodayTaskListItemType.reorderGroup,
+      group: group,
+    );
+  }
+
+  factory _TodayTaskListItem.task(_TaskGroup group, TaskItem task) {
+    return _TodayTaskListItem._(
+      type: _TodayTaskListItemType.task,
+      group: group,
+      task: task,
+    );
+  }
+
+  final _TodayTaskListItemType type;
+  final _TaskSection? section;
+  final _TaskGroup? group;
+  final TaskItem? task;
+}
+
 class _TaskGroup {
   const _TaskGroup({
     required this.id,
@@ -2646,6 +3129,24 @@ class _TaskGroup {
   final Priority? priority;
   final bool section;
   final bool reorderable;
+}
+
+class _TaskSection {
+  const _TaskSection({
+    required this.id,
+    required this.title,
+    required this.groups,
+    this.subtitle,
+  });
+
+  final String id;
+  final String title;
+  final String? subtitle;
+  final List<_TaskGroup> groups;
+
+  int get taskCount {
+    return groups.fold(0, (sum, group) => sum + group.tasks.length);
+  }
 }
 
 enum _TodayTaskAction {

@@ -31,6 +31,7 @@ windows/flutter/ephemeral/
 /evoly_*.png
 /evoly_*.xml
 /flutter_*.log
+/tmp_*.png
 
 # Local databases and exported runtime state
 *.db

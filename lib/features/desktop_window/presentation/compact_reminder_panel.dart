@@ -592,11 +592,13 @@ class _NextReminderBlock extends StatelessWidget {
     final status = _reminderStatus(reminder);
 
     return Semantics(
-      button: reminder != null,
-      label: reminder == null ? '暂无下一条提醒' : '打开下一条提醒',
+      button: true,
+      label: reminder == null ? '为任务添加提醒' : '打开下一条提醒',
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: reminder == null ? null : () => onOpenTask(reminder.taskId),
+        onTap: reminder == null
+            ? () => onOpenTask(null)
+            : () => onOpenTask(reminder.taskId),
         child: DecoratedBox(
           decoration: BoxDecoration(
             gradient: skin.cardGradient,
@@ -652,7 +654,7 @@ class _NextReminderBlock extends StatelessWidget {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              reminder?.title ?? '暂无提醒',
+                              reminder?.title ?? '为任务添加提醒',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodyMedium?.copyWith(

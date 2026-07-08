@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 import 'package:evoly/app/data_refresh_controller.dart';
+import 'package:evoly/app/router.dart';
 import 'package:evoly/core/domain/priority.dart';
 import 'package:evoly/features/coach/application/rule_based_coach_service.dart';
 import 'package:evoly/features/coach/data/coach_repository.dart';
@@ -33,7 +34,7 @@ void main() {
       priority: Priority.high,
       status: TaskStatus.pending,
       estimatedMinutes: 30,
-      dueDateTime: DateTime(now.year, now.month, now.day, 18),
+      dueDateTime: _laterToday(now),
       createdAt: now,
       updatedAt: now,
     );
@@ -66,7 +67,7 @@ void main() {
     expect(find.text('计划'), findsWidgets);
     expect(find.text('计划概览'), findsOneWidget);
     expect(find.text('待推进'), findsWidgets);
-    expect(find.text('Evoly Coach 今日建议'), findsOneWidget);
+    expect(find.text('Evoly Compass'), findsOneWidget);
 
     await tester.drag(find.byType(ListView), const Offset(0, -320));
     await tester.pump();
@@ -86,7 +87,7 @@ void main() {
       priority: Priority.medium,
       status: TaskStatus.pending,
       estimatedMinutes: 20,
-      dueDateTime: DateTime(now.year, now.month, now.day, 18),
+      dueDateTime: _laterToday(now),
       createdAt: now,
       updatedAt: now,
     );
@@ -159,6 +160,147 @@ void main() {
     expect(find.text('项目详情占位'), findsOneWidget);
   });
 
+  testWidgets('coach primary action opens owning project detail', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final now = DateTime.now();
+    final task = TaskItem(
+      id: 'coach-top-task',
+      goalId: 'goal-1',
+      title: '先处理的子任务',
+      priority: Priority.high,
+      status: TaskStatus.pending,
+      estimatedMinutes: 20,
+      dueDateTime: _laterToday(now),
+      createdAt: now,
+      updatedAt: now,
+    );
+    Object? openedArguments;
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: _providersFor(
+          taskRepository: _FakeTaskRepository([task]),
+          coachContext: CoachTodayContext(
+            todayTasks: [
+              CoachTaskContext(
+                id: task.id,
+                goalId: task.goalId,
+                title: task.title,
+                priority: task.priority,
+                status: task.status,
+                estimatedMinutes: task.estimatedMinutes,
+                dueDateTime: task.dueDateTime,
+                goalTitle: 'V0.4 项目',
+              ),
+            ],
+            delayedGoalStats: const [],
+          ),
+        ),
+        child: MaterialApp(
+          home: const TodayPage(),
+          onGenerateRoute: (settings) {
+            openedArguments = settings.arguments;
+            return MaterialPageRoute<void>(
+              builder: (_) => const Scaffold(body: Text('项目详情占位')),
+              settings: settings,
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pump(const Duration(seconds: 1));
+
+    final action = find.text('开始第一项');
+    await tester.ensureVisible(action);
+    final actionButton = find.ancestor(
+      of: action,
+      matching: find.byType(FilledButton),
+    );
+    await tester.tap(actionButton);
+    await tester.pumpAndSettle();
+
+    expect(openedArguments, isA<GoalDetailRouteArguments>());
+    final arguments = openedArguments! as GoalDetailRouteArguments;
+    expect(arguments.goalId, 'goal-1');
+    expect(arguments.initialTaskId, 'coach-top-task');
+    expect(find.text('项目详情占位'), findsOneWidget);
+    expect(find.text('编辑任务'), findsNothing);
+  });
+
+  testWidgets('coach primary action stays on plan when project is missing', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final now = DateTime.now();
+    final task = TaskItem(
+      id: 'coach-missing-project-task',
+      goalId: 'missing-goal',
+      title: '找不到项目的子任务',
+      priority: Priority.high,
+      status: TaskStatus.pending,
+      estimatedMinutes: 20,
+      dueDateTime: _laterToday(now),
+      createdAt: now,
+      updatedAt: now,
+    );
+    Object? openedArguments;
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: _providersFor(
+          taskRepository: _FakeTaskRepository([task]),
+          coachContext: CoachTodayContext(
+            todayTasks: [
+              CoachTaskContext(
+                id: task.id,
+                goalId: task.goalId,
+                title: task.title,
+                priority: task.priority,
+                status: task.status,
+                estimatedMinutes: task.estimatedMinutes,
+                dueDateTime: task.dueDateTime,
+                goalTitle: '未同步',
+              ),
+            ],
+            delayedGoalStats: const [],
+          ),
+          goalRepository: _FakeGoalRepository(goals: []),
+        ),
+        child: MaterialApp(
+          home: const TodayPage(),
+          onGenerateRoute: (settings) {
+            openedArguments = settings.arguments;
+            return MaterialPageRoute<void>(
+              builder: (_) => const Scaffold(body: Text('不应打开')),
+              settings: settings,
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pump(const Duration(seconds: 1));
+
+    final action = find.text('开始第一项');
+    await tester.ensureVisible(action);
+    final actionButton = find.ancestor(
+      of: action,
+      matching: find.byType(FilledButton),
+    );
+    await tester.tap(actionButton);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(openedArguments, isNull);
+    expect(find.text('这个任务的所属项目暂未同步，请在计划列表中查看。'), findsOneWidget);
+    expect(find.text('不应打开'), findsNothing);
+  });
+
   testWidgets('moving task to another project removes it from goal detail',
       (tester) async {
     final now = DateTime.now();
@@ -229,6 +371,129 @@ void main() {
     expect(find.text('已移动到「新项目」'), findsOneWidget);
   });
 
+  testWidgets('shows delayed tasks in a separate plan section', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final now = DateTime.now();
+    final delayedByDueTask = TaskItem(
+      id: 'task-delayed-by-due',
+      goalId: 'goal-1',
+      title: '刚刚到期未完成',
+      priority: Priority.high,
+      status: TaskStatus.pending,
+      estimatedMinutes: 25,
+      dueDateTime: now.subtract(const Duration(minutes: 1)),
+      createdAt: now.subtract(const Duration(days: 1)),
+      updatedAt: now,
+    );
+    final postponedTask = TaskItem(
+      id: 'task-postponed',
+      goalId: 'goal-1',
+      title: '已经手动延期',
+      priority: Priority.high,
+      status: TaskStatus.postponed,
+      estimatedMinutes: 25,
+      dueDateTime: DateTime(now.year, now.month, now.day + 1, 18),
+      createdAt: now,
+      updatedAt: now,
+    );
+    final todayTask = TaskItem(
+      id: 'task-today',
+      goalId: 'goal-1',
+      title: '今天要交付',
+      priority: Priority.medium,
+      status: TaskStatus.pending,
+      estimatedMinutes: 25,
+      dueDateTime: _laterToday(now),
+      createdAt: now,
+      updatedAt: now,
+    );
+    final unscheduledTask = TaskItem(
+      id: 'task-unscheduled',
+      goalId: 'goal-1',
+      title: '没有截止时间',
+      priority: Priority.low,
+      status: TaskStatus.pending,
+      estimatedMinutes: 25,
+      createdAt: now,
+      updatedAt: now,
+    );
+    final completedOverdueTask = TaskItem(
+      id: 'task-completed-overdue',
+      goalId: 'goal-1',
+      title: '已完成的过期任务',
+      priority: Priority.high,
+      status: TaskStatus.completed,
+      estimatedMinutes: 25,
+      dueDateTime: DateTime(now.year, now.month, now.day - 1, 18),
+      completedAt: now.subtract(const Duration(days: 1)),
+      createdAt: now.subtract(const Duration(days: 1)),
+      updatedAt: now,
+    );
+    final cancelledOverdueTask = TaskItem(
+      id: 'task-cancelled-overdue',
+      goalId: 'goal-1',
+      title: '已取消的过期任务',
+      priority: Priority.high,
+      status: TaskStatus.cancelled,
+      estimatedMinutes: 25,
+      dueDateTime: DateTime(now.year, now.month, now.day - 1, 18),
+      createdAt: now.subtract(const Duration(days: 1)),
+      updatedAt: now,
+    );
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: _providersFor(
+          taskRepository: _FakeTaskRepository([
+            delayedByDueTask,
+            postponedTask,
+            todayTask,
+            unscheduledTask,
+            completedOverdueTask,
+            cancelledOverdueTask,
+          ]),
+          coachContext: CoachTodayContext(
+            todayTasks: [todayTask].map((task) {
+              return CoachTaskContext(
+                id: task.id,
+                goalId: task.goalId,
+                title: task.title,
+                priority: task.priority,
+                status: task.status,
+                estimatedMinutes: task.estimatedMinutes,
+                dueDateTime: task.dueDateTime,
+                goalTitle: 'V0.4',
+              );
+            }).toList(),
+            delayedGoalStats: const [],
+          ),
+        ),
+        child: const MaterialApp(home: TodayPage()),
+      ),
+    );
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.text('2 已延期'), findsOneWidget);
+    expect(find.text('1 今日到期'), findsOneWidget);
+    expect(find.text('1 待安排'), findsOneWidget);
+    expect(find.text('已延期'), findsWidgets);
+    expect(find.text('今日到期'), findsOneWidget);
+    expect(find.text('待安排'), findsOneWidget);
+    expect(find.text('刚刚到期未完成'), findsOneWidget);
+    expect(find.text('已经手动延期'), findsOneWidget);
+    expect(find.text('已延期'), findsWidgets);
+    expect(find.text('今天要交付'), findsWidgets);
+    expect(find.text('没有截止时间'), findsOneWidget);
+    expect(find.text('已完成的过期任务'), findsNothing);
+    expect(find.text('已取消的过期任务'), findsNothing);
+
+    final delayedTop = tester.getTopLeft(find.text('已延期').first).dy;
+    final dueTop = tester.getTopLeft(find.text('今日到期')).dy;
+    expect(delayedTop, lessThan(dueTop));
+  });
+
   testWidgets('shows long-running pending tasks in plan', (tester) async {
     final now = DateTime.now();
     final todayTask = TaskItem(
@@ -238,7 +503,7 @@ void main() {
       priority: Priority.high,
       status: TaskStatus.pending,
       estimatedMinutes: 25,
-      dueDateTime: DateTime(now.year, now.month, now.day, 18),
+      dueDateTime: _laterToday(now),
       createdAt: now,
       updatedAt: now,
     );
@@ -319,21 +584,21 @@ void main() {
         title: '高优先级今日到期',
         priority: Priority.high,
         now: now,
-        dueDateTime: DateTime(now.year, now.month, now.day, 10),
+        dueDateTime: _laterToday(now, minutesFromNow: 30),
       ),
       _planTask(
         id: 'medium',
         title: '中优先级今日到期',
         priority: Priority.medium,
         now: now,
-        dueDateTime: DateTime(now.year, now.month, now.day, 12),
+        dueDateTime: _laterToday(now, minutesFromNow: 60),
       ),
       _planTask(
         id: 'low',
         title: '低优先级今日到期',
         priority: Priority.low,
         now: now,
-        dueDateTime: DateTime(now.year, now.month, now.day, 14),
+        dueDateTime: _laterToday(now, minutesFromNow: 90),
       ),
     ];
 
@@ -385,7 +650,7 @@ void main() {
         priority: Priority.high,
         sortOrder: 1000,
         now: now,
-        dueDateTime: DateTime(now.year, now.month, now.day, 10),
+        dueDateTime: _laterToday(now, minutesFromNow: 30),
       ),
       _planTask(
         id: 'second',
@@ -393,7 +658,7 @@ void main() {
         priority: Priority.high,
         sortOrder: 2000,
         now: now,
-        dueDateTime: DateTime(now.year, now.month, now.day, 12),
+        dueDateTime: _laterToday(now, minutesFromNow: 60),
       ),
     ];
     final taskRepository = _FakeTaskRepository(tasks);
@@ -442,7 +707,7 @@ void main() {
         priority: Priority.high,
         sortOrder: 1000,
         now: now,
-        dueDateTime: DateTime(now.year, now.month, now.day, 10),
+        dueDateTime: _laterToday(now, minutesFromNow: 30),
       ),
       _planTask(
         id: 'second',
@@ -450,7 +715,7 @@ void main() {
         priority: Priority.high,
         sortOrder: 2000,
         now: now,
-        dueDateTime: DateTime(now.year, now.month, now.day, 12),
+        dueDateTime: _laterToday(now, minutesFromNow: 60),
       ),
       _planTask(
         id: 'third',
@@ -458,7 +723,7 @@ void main() {
         priority: Priority.high,
         sortOrder: 3000,
         now: now,
-        dueDateTime: DateTime(now.year, now.month, now.day, 14),
+        dueDateTime: _laterToday(now, minutesFromNow: 90),
       ),
     ];
     final taskRepository = _FakeTaskRepository(tasks);
@@ -515,7 +780,7 @@ void main() {
         priority: Priority.high,
         sortOrder: 1000,
         now: now,
-        dueDateTime: DateTime(now.year, now.month, now.day, 10),
+        dueDateTime: _laterToday(now, minutesFromNow: 30),
       ),
       _planTask(
         id: 'second',
@@ -523,7 +788,7 @@ void main() {
         priority: Priority.high,
         sortOrder: 2000,
         now: now,
-        dueDateTime: DateTime(now.year, now.month, now.day, 12),
+        dueDateTime: _laterToday(now, minutesFromNow: 60),
       ),
       _planTask(
         id: 'third',
@@ -531,7 +796,7 @@ void main() {
         priority: Priority.high,
         sortOrder: 3000,
         now: now,
-        dueDateTime: DateTime(now.year, now.month, now.day, 14),
+        dueDateTime: _laterToday(now, minutesFromNow: 90),
       ),
     ];
     final taskRepository = _FakeTaskRepository(tasks);
@@ -575,6 +840,78 @@ void main() {
     expect(taskRepository.lastReorderedTaskIds, ['second', 'first', 'third']);
   });
 
+  testWidgets('long press on task card reorders and exits drag state',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final now = DateTime.now();
+    final tasks = [
+      _planTask(
+        id: 'first',
+        title: 'First long press task',
+        priority: Priority.high,
+        sortOrder: 1000,
+        now: now,
+        dueDateTime: _laterToday(now, minutesFromNow: 30),
+      ),
+      _planTask(
+        id: 'second',
+        title: 'Second long press task',
+        priority: Priority.high,
+        sortOrder: 2000,
+        now: now,
+        dueDateTime: _laterToday(now, minutesFromNow: 60),
+      ),
+      _planTask(
+        id: 'third',
+        title: 'Third long press task',
+        priority: Priority.high,
+        sortOrder: 3000,
+        now: now,
+        dueDateTime: _laterToday(now, minutesFromNow: 90),
+      ),
+    ];
+    final taskRepository = _FakeTaskRepository(tasks);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: _providersFor(
+          taskRepository: taskRepository,
+          coachContext: CoachTodayContext(
+            todayTasks: tasks.map((task) {
+              return CoachTaskContext(
+                id: task.id,
+                goalId: task.goalId,
+                title: task.title,
+                priority: task.priority,
+                status: task.status,
+                estimatedMinutes: task.estimatedMinutes,
+                dueDateTime: task.dueDateTime,
+                goalTitle: 'V0.4',
+              );
+            }).toList(),
+            delayedGoalStats: const [],
+          ),
+        ),
+        child: const MaterialApp(home: TodayPage()),
+      ),
+    );
+    await tester.pump(const Duration(seconds: 1));
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('Second long press task').first),
+    );
+    await tester.pump(const Duration(milliseconds: 650));
+    await gesture.moveBy(const Offset(0, -84));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(taskRepository.lastReorderedTaskIds, ['second', 'first', 'third']);
+  });
+
   testWidgets('reorders variable height task cards without layout exceptions',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(430, 1100));
@@ -588,7 +925,7 @@ void main() {
         priority: Priority.high,
         sortOrder: 1000,
         now: now,
-        dueDateTime: DateTime(now.year, now.month, now.day, 10),
+        dueDateTime: _laterToday(now, minutesFromNow: 30),
       ),
       _planTask(
         id: 'expanded',
@@ -599,7 +936,7 @@ void main() {
         priority: Priority.high,
         sortOrder: 2000,
         now: now,
-        dueDateTime: DateTime(now.year, now.month, now.day, 12),
+        dueDateTime: _laterToday(now, minutesFromNow: 60),
       ),
       _planTask(
         id: 'stable',
@@ -607,7 +944,7 @@ void main() {
         priority: Priority.high,
         sortOrder: 3000,
         now: now,
-        dueDateTime: DateTime(now.year, now.month, now.day, 14),
+        dueDateTime: _laterToday(now, minutesFromNow: 90),
       ),
     ];
     final taskRepository = _FakeTaskRepository(tasks);
@@ -674,7 +1011,7 @@ void main() {
         priority: Priority.high,
         sortOrder: 1000,
         now: now,
-        dueDateTime: DateTime(now.year, now.month, now.day, 10),
+        dueDateTime: _laterToday(now, minutesFromNow: 30),
       ),
       _planTask(
         id: 'due-second',
@@ -682,7 +1019,7 @@ void main() {
         priority: Priority.high,
         sortOrder: 2000,
         now: now,
-        dueDateTime: DateTime(now.year, now.month, now.day, 12),
+        dueDateTime: _laterToday(now, minutesFromNow: 60),
       ),
       _planTask(
         id: 'unscheduled-first',
@@ -731,6 +1068,56 @@ void main() {
     expect(find.byIcon(Icons.drag_indicator_rounded), findsNWidgets(4));
   });
 
+  testWidgets('collapses and expands plan sections', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final now = DateTime.now();
+    final dueTask = _planTask(
+      id: 'due-collapsible',
+      title: 'Due section task',
+      priority: Priority.high,
+      now: now,
+      dueDateTime: _laterToday(now, minutesFromNow: 30),
+    );
+    final unscheduledTask = _planTask(
+      id: 'unscheduled-collapsible',
+      title: 'Unscheduled section task',
+      priority: Priority.medium,
+      now: now,
+    );
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: _providersFor(
+          taskRepository: _FakeTaskRepository([dueTask, unscheduledTask]),
+          coachContext: const CoachTodayContext(
+            todayTasks: [],
+            delayedGoalStats: [],
+          ),
+        ),
+        child: const MaterialApp(home: TodayPage()),
+      ),
+    );
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.text('今日到期'), findsOneWidget);
+    expect(find.text('Due section task'), findsOneWidget);
+    expect(find.text('Unscheduled section task'), findsOneWidget);
+
+    await tester.tap(find.text('今日到期'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('今日到期'), findsOneWidget);
+    expect(find.text('Due section task'), findsNothing);
+    expect(find.text('Unscheduled section task'), findsOneWidget);
+
+    await tester.tap(find.text('今日到期'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Due section task'), findsOneWidget);
+  });
+
   testWidgets('keeps only coach top 3 after confirmation', (tester) async {
     final now = DateTime.now();
     final tasks = List.generate(4, (index) {
@@ -741,7 +1128,7 @@ void main() {
         priority: index == 3 ? Priority.low : Priority.high,
         status: TaskStatus.pending,
         estimatedMinutes: 80,
-        dueDateTime: DateTime(now.year, now.month, now.day, 18 + index),
+        dueDateTime: _laterToday(now, minutesFromNow: (index + 1) * 30),
         createdAt: now,
         updatedAt: now,
       );
@@ -781,7 +1168,7 @@ void main() {
     await tester.tap(find.text('只保留 Top 3'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Coach 调整草案'), findsOneWidget);
+    expect(find.text('Compass \u8c03\u6574\u8349\u6848'), findsOneWidget);
     expect(find.text('保留今天推进（3）'), findsOneWidget);
     expect(find.text('延期到明天（1）'), findsOneWidget);
 
@@ -804,7 +1191,7 @@ void main() {
       priority: Priority.high,
       status: TaskStatus.pending,
       estimatedMinutes: 30,
-      dueDateTime: DateTime(now.year, now.month, now.day, 18),
+      dueDateTime: _laterToday(now),
       createdAt: now,
       updatedAt: now,
     );
@@ -915,6 +1302,17 @@ TaskItem _planTask({
     updatedAt: now,
     sortOrder: sortOrder,
   );
+}
+
+DateTime _laterToday(DateTime now, {int minutesFromNow = 60}) {
+  final later = now.add(Duration(minutes: minutesFromNow));
+  if (later.year == now.year &&
+      later.month == now.month &&
+      later.day == now.day) {
+    return later;
+  }
+
+  return DateTime(now.year, now.month, now.day, 23, 59);
 }
 
 class _FakeGoalRepository implements GoalRepository {
@@ -1045,7 +1443,9 @@ class _FakeTaskRepository implements TaskRepository {
       }
 
       final dueDateTime = task.dueDateTime;
-      return dueDateTime == null || dueDateTime.isBefore(end);
+      return task.status == TaskStatus.postponed ||
+          dueDateTime == null ||
+          dueDateTime.isBefore(end);
     }).toList();
   }
 

@@ -39,6 +39,7 @@ void main() {
     );
 
     await tester.pumpAndSettle();
+    expect(find.text('预计耗时（分钟）'), findsNothing);
     await tester.tap(_chipWithText('高'));
     await tester.tap(_chipWithText('已完成'));
 
@@ -58,7 +59,7 @@ void main() {
   testWidgets('can move task to another project without changing task details',
       (tester) async {
     final now = DateTime(2026, 1, 1, 9);
-    final dueDateTime = DateTime(2026, 1, 3, 18);
+    final dueDateTime = DateTime.now().add(const Duration(days: 1));
     final task = TaskItem(
       id: 'task-1',
       goalId: 'goal-1',
@@ -75,7 +76,7 @@ void main() {
       id: 'reminder-1',
       targetType: ReminderTargetType.task,
       targetId: task.id,
-      remindAt: DateTime(2026, 1, 3, 17),
+      remindAt: dueDateTime.subtract(const Duration(hours: 1)),
       repeatRule: RepeatRule.none,
       enabled: true,
       createdAt: now,
@@ -124,6 +125,131 @@ void main() {
     expect(savedTask?.estimatedMinutes, 45);
     expect(savedTask?.dueDateTime, dueDateTime);
     expect(savedTask?.completedAt, isNull);
+    expect(savedReminder?.remindAt, reminder.remindAt);
+    expect(savedReminder?.repeatRule, RepeatRule.none);
+  });
+
+  testWidgets('updates due date time without changing reminder',
+      (tester) async {
+    final now = DateTime(2026, 1, 1, 9);
+    final originalDueDateTime = DateTime.now().add(const Duration(days: 1));
+    final customDueDateTime = DateTime.now().add(const Duration(days: 2));
+    final task = TaskItem(
+      id: 'task-1',
+      goalId: 'goal-1',
+      title: '调整截止时间',
+      priority: Priority.medium,
+      status: TaskStatus.pending,
+      estimatedMinutes: 30,
+      dueDateTime: originalDueDateTime,
+      createdAt: now,
+      updatedAt: now,
+    );
+    final reminder = Reminder(
+      id: 'reminder-1',
+      targetType: ReminderTargetType.task,
+      targetId: task.id,
+      remindAt: originalDueDateTime.subtract(const Duration(hours: 1)),
+      repeatRule: RepeatRule.none,
+      enabled: true,
+      createdAt: now,
+      updatedAt: now,
+    );
+    TaskItem? savedTask;
+    TaskReminderSelection? savedReminder;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TaskEditSheet(
+            title: '编辑任务',
+            task: task,
+            reminder: reminder,
+            customDueDateTimePicker: (_, __) async => customDueDateTime,
+            onSave: (updatedTask, reminder) async {
+              savedTask = updatedTask;
+              savedReminder = reminder;
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('点击调整日期和时间'));
+    await tester.tap(find.text('点击调整日期和时间'));
+    await tester.pumpAndSettle();
+
+    final doneButton = find.ancestor(
+      of: find.text('完成'),
+      matching: find.byType(FilledButton),
+    );
+    await tester.ensureVisible(doneButton);
+    await tester.tap(doneButton);
+    await tester.pumpAndSettle();
+
+    expect(savedTask?.dueDateTime, customDueDateTime);
+    expect(savedReminder?.remindAt, reminder.remindAt);
+    expect(savedReminder?.repeatRule, RepeatRule.none);
+  });
+
+  testWidgets('clears due date time without clearing reminder', (tester) async {
+    final now = DateTime(2026, 1, 1, 9);
+    final dueDateTime = DateTime.now().add(const Duration(days: 1));
+    final task = TaskItem(
+      id: 'task-1',
+      goalId: 'goal-1',
+      title: '清空截止时间',
+      priority: Priority.medium,
+      status: TaskStatus.pending,
+      estimatedMinutes: 30,
+      dueDateTime: dueDateTime,
+      createdAt: now,
+      updatedAt: now,
+    );
+    final reminder = Reminder(
+      id: 'reminder-1',
+      targetType: ReminderTargetType.task,
+      targetId: task.id,
+      remindAt: dueDateTime.subtract(const Duration(hours: 1)),
+      repeatRule: RepeatRule.none,
+      enabled: true,
+      createdAt: now,
+      updatedAt: now,
+    );
+    TaskItem? savedTask;
+    TaskReminderSelection? savedReminder;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TaskEditSheet(
+            title: '编辑任务',
+            task: task,
+            reminder: reminder,
+            onSave: (updatedTask, reminder) async {
+              savedTask = updatedTask;
+              savedReminder = reminder;
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('不设'));
+    await tester.tap(find.text('不设'));
+    await tester.pumpAndSettle();
+
+    final doneButton = find.ancestor(
+      of: find.text('完成'),
+      matching: find.byType(FilledButton),
+    );
+    await tester.ensureVisible(doneButton);
+    await tester.tap(doneButton);
+    await tester.pumpAndSettle();
+
+    expect(savedTask?.dueDateTime, isNull);
     expect(savedReminder?.remindAt, reminder.remindAt);
     expect(savedReminder?.repeatRule, RepeatRule.none);
   });
