@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:evoly/core/domain/priority.dart';
+import 'package:evoly/features/goals/domain/goal.dart';
 import 'package:evoly/features/reminders/domain/reminder.dart';
 import 'package:evoly/features/reminders/presentation/task_reminder_picker.dart';
 import 'package:evoly/features/tasks/domain/task_item.dart';
+import 'package:evoly/shared/ui/bottom_sheets/adaptive_form_modal.dart';
 import 'package:evoly/shared/ui/bottom_sheets/bottom_sheet_form_layout.dart';
 import 'package:evoly/shared/ui/components/app_components.dart';
 import 'package:evoly/shared/ui/tokens/app_radii.dart';
@@ -17,12 +19,14 @@ class TaskEditSheet extends StatefulWidget {
     required this.task,
     required this.reminder,
     required this.onSave,
+    this.availableGoals = const [],
     super.key,
   });
 
   final String title;
   final TaskItem task;
   final Reminder? reminder;
+  final List<Goal> availableGoals;
   final Future<void> Function(
     TaskItem updatedTask,
     TaskReminderSelection reminder,
@@ -40,6 +44,7 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
 
   late Priority _selectedPriority;
   late TaskStatus _selectedStatus;
+  late String _selectedGoalId;
   DateTime? _selectedDueDateTime;
   late TaskReminderSelection _selectedReminder;
   Timer? _saveDebounce;
@@ -61,6 +66,7 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
     _minutesController = TextEditingController(
       text: _task.estimatedMinutes.toString(),
     );
+    _selectedGoalId = _task.goalId;
     _selectedPriority = _task.priority;
     _selectedStatus = _task.status;
     _selectedDueDateTime = _task.dueDateTime;
@@ -125,6 +131,14 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
               decoration: const InputDecoration(),
             ),
           ),
+          if (_projectOptions.length > 1)
+            AppField(
+              label: '所属项目',
+              child: _ProjectPickerField(
+                option: _selectedProjectOption,
+                onTap: _showProjectPicker,
+              ),
+            ),
           _TaskOptionGroup<Priority>(
             label: '优先级',
             values: const [Priority.high, Priority.medium, Priority.low],
@@ -213,6 +227,37 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
     _scheduleSave();
   }
 
+  Future<void> _showProjectPicker() async {
+    FocusScope.of(context).unfocus();
+    final selectedGoalId = await showAdaptiveFormModal<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      requestFocus: false,
+      builder: (context) {
+        return _ProjectSelectorSheet(
+          options: _projectOptions,
+          selectedGoalId: _selectedGoalId,
+        );
+      },
+    );
+
+    if (!mounted || selectedGoalId == null) {
+      return;
+    }
+
+    _changeGoal(selectedGoalId);
+  }
+
+  void _changeGoal(String? goalId) {
+    if (goalId == null || goalId == _selectedGoalId) {
+      return;
+    }
+
+    setState(() => _selectedGoalId = goalId);
+    _scheduleSave();
+  }
+
   void _changeStatus(TaskStatus status) {
     if (status == _selectedStatus) {
       return;
@@ -285,6 +330,7 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
     final estimatedMinutes = int.tryParse(_minutesController.text.trim()) ?? 30;
     final now = DateTime.now();
     return _task.copyWith(
+      goalId: _selectedGoalId,
       title: title,
       description: _descriptionController.text.trim(),
       priority: _selectedPriority,
@@ -314,6 +360,7 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
   String _signatureFor(TaskItem task, TaskReminderSelection reminder) {
     return [
       task.title,
+      task.goalId,
       task.description,
       task.priority.name,
       task.status.name,
@@ -354,6 +401,243 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
       TaskStatus.postponed => Icons.event_repeat_rounded,
       TaskStatus.cancelled => Icons.cancel_rounded,
     };
+  }
+
+  List<_ProjectOption> get _projectOptions {
+    final options = <_ProjectOption>[
+      for (final goal in widget.availableGoals)
+        if (goal.title.trim().isNotEmpty)
+          _ProjectOption(id: goal.id, title: goal.title.trim()),
+    ];
+
+    if (!options.any((option) => option.id == _selectedGoalId)) {
+      options.insert(
+        0,
+        _ProjectOption(id: _selectedGoalId, title: '未同步项目'),
+      );
+    }
+
+    return options;
+  }
+
+  _ProjectOption get _selectedProjectOption {
+    return _projectOptions.firstWhere(
+      (option) => option.id == _selectedGoalId,
+      orElse: () => _ProjectOption(
+        id: _selectedGoalId,
+        title: '未同步项目',
+      ),
+    );
+  }
+}
+
+class _ProjectOption {
+  const _ProjectOption({
+    required this.id,
+    required this.title,
+  });
+
+  final String id;
+  final String title;
+}
+
+class _ProjectPickerField extends StatelessWidget {
+  const _ProjectPickerField({
+    required this.option,
+    required this.onTap,
+  });
+
+  final _ProjectOption option;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = EvolyDesignTokens.of(context);
+    final textTheme = Theme.of(context).textTheme;
+
+    return AppSurface(
+      variant: AppSurfaceVariant.muted,
+      radius: AppRadii.element,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      onTap: onTap,
+      child: Row(
+        children: [
+          Icon(
+            Icons.workspaces_outline,
+            size: 20,
+            color: tokens.textSecondary,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              option.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: textTheme.bodyLarge?.copyWith(
+                color: tokens.textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Icon(
+            Icons.keyboard_arrow_right_rounded,
+            color: tokens.textSecondary,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProjectSelectorSheet extends StatefulWidget {
+  const _ProjectSelectorSheet({
+    required this.options,
+    required this.selectedGoalId,
+  });
+
+  final List<_ProjectOption> options;
+  final String selectedGoalId;
+
+  @override
+  State<_ProjectSelectorSheet> createState() => _ProjectSelectorSheetState();
+}
+
+class _ProjectSelectorSheetState extends State<_ProjectSelectorSheet> {
+  late final TextEditingController _queryController;
+  var _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _queryController = TextEditingController();
+    _queryController.addListener(_handleQueryChanged);
+  }
+
+  @override
+  void dispose() {
+    _queryController.removeListener(_handleQueryChanged);
+    _queryController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filteredOptions = _filteredOptions;
+
+    return BottomSheetFormLayout(
+      title: '选择所属项目',
+      minHeight: 420,
+      footer: TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('取消'),
+      ),
+      children: [
+        TextField(
+          controller: _queryController,
+          textInputAction: TextInputAction.search,
+          decoration: const InputDecoration(
+            prefixIcon: Icon(Icons.search_rounded),
+            hintText: '搜索项目',
+          ),
+        ),
+        if (filteredOptions.isEmpty)
+          const AppSurface(
+            variant: AppSurfaceVariant.muted,
+            child: Text('没有匹配的项目'),
+          )
+        else
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final option in filteredOptions) ...[
+                _ProjectSelectorRow(
+                  option: option,
+                  selected: option.id == widget.selectedGoalId,
+                  onTap: () => Navigator.pop(context, option.id),
+                ),
+                if (option != filteredOptions.last)
+                  const SizedBox(height: AppSpacing.xs),
+              ],
+            ],
+          ),
+      ],
+    );
+  }
+
+  void _handleQueryChanged() {
+    setState(() => _query = _queryController.text.trim());
+  }
+
+  List<_ProjectOption> get _filteredOptions {
+    final query = _query.toLowerCase();
+    if (query.isEmpty) {
+      return widget.options;
+    }
+
+    return widget.options.where((option) {
+      return option.title.toLowerCase().contains(query);
+    }).toList();
+  }
+}
+
+class _ProjectSelectorRow extends StatelessWidget {
+  const _ProjectSelectorRow({
+    required this.option,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _ProjectOption option;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = EvolyDesignTokens.of(context);
+    final textTheme = Theme.of(context).textTheme;
+
+    return AppSurface(
+      variant: selected ? AppSurfaceVariant.selected : AppSurfaceVariant.plain,
+      radius: AppRadii.element,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      onTap: onTap,
+      child: Row(
+        children: [
+          Icon(
+            Icons.workspaces_outline,
+            color: selected ? Theme.of(context).colorScheme.primary : null,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              option.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: textTheme.bodyLarge?.copyWith(
+                color: tokens.textPrimary,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          AnimatedOpacity(
+            opacity: selected ? 1 : 0,
+            duration: const Duration(milliseconds: 120),
+            child: Icon(
+              Icons.check_rounded,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

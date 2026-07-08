@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:evoly/app/router.dart';
@@ -78,53 +79,60 @@ class _DocumentEditPageState extends State<DocumentEditPage> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: !_dirty,
-      onPopInvokedWithResult: (didPop, _) async {
-        if (didPop) {
-          return;
-        }
-
-        final shouldDiscard = await _confirmDiscardChanges();
-        if (shouldDiscard && context.mounted) {
-          Navigator.pop(context);
-        }
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyS, control: true): () {
+          _saveDocument();
+        },
       },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(_documentId == null ? '新建文档' : '编辑文档'),
-          actions: [
-            IconButton(
-              tooltip: _previewMode ? '编辑' : '预览',
-              onPressed: _loading
-                  ? null
-                  : () => setState(() => _previewMode = !_previewMode),
-              icon: Icon(
-                _previewMode
-                    ? Icons.edit_note_rounded
-                    : Icons.visibility_outlined,
-              ),
-            ),
-            TextButton(
-              onPressed: _saving || _loading ? null : _saveDocument,
-              child: Text(_saving ? '保存中' : '保存'),
-            ),
-            PopupMenuButton<_DocumentEditAction>(
-              onSelected: (action) {
-                if (action == _DocumentEditAction.delete) {
-                  _deleteDocument();
-                }
-              },
-              itemBuilder: (context) => const [
-                PopupMenuItem(
-                  value: _DocumentEditAction.delete,
-                  child: Text('删除文档'),
+      child: PopScope(
+        canPop: !_dirty,
+        onPopInvokedWithResult: (didPop, _) async {
+          if (didPop) {
+            return;
+          }
+
+          final shouldDiscard = await _confirmDiscardChanges();
+          if (shouldDiscard && context.mounted) {
+            Navigator.pop(context);
+          }
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(_documentId == null ? '新建文档' : '编辑文档'),
+            actions: [
+              IconButton(
+                tooltip: _previewMode ? '编辑' : '预览',
+                onPressed: _loading
+                    ? null
+                    : () => setState(() => _previewMode = !_previewMode),
+                icon: Icon(
+                  _previewMode
+                      ? Icons.edit_note_rounded
+                      : Icons.visibility_outlined,
                 ),
-              ],
-            ),
-          ],
+              ),
+              TextButton(
+                onPressed: _saving || _loading ? null : _saveDocument,
+                child: Text(_saving ? '保存中' : '保存'),
+              ),
+              PopupMenuButton<_DocumentEditAction>(
+                onSelected: (action) {
+                  if (action == _DocumentEditAction.delete) {
+                    _deleteDocument();
+                  }
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(
+                    value: _DocumentEditAction.delete,
+                    child: Text('删除文档'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          body: _buildBody(),
         ),
-        body: _buildBody(),
       ),
     );
   }
@@ -291,6 +299,10 @@ class _DocumentEditPageState extends State<DocumentEditPage> {
   }
 
   Future<void> _saveDocument() async {
+    if (_saving || _loading) {
+      return;
+    }
+
     setState(() => _saving = true);
 
     try {
@@ -385,11 +397,11 @@ class _DocumentEditPageState extends State<DocumentEditPage> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('关联目标'),
+              title: const Text('关联项目'),
               content: SizedBox(
                 width: 420,
                 child: _goals.isEmpty
-                    ? const Text('还没有可关联的目标。')
+                    ? const Text('还没有可关联的项目。')
                     : ListView.builder(
                         shrinkWrap: true,
                         itemCount: _goals.length,
@@ -694,18 +706,18 @@ class _LinkedGoalsSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text('关联目标', style: Theme.of(context).textTheme.titleSmall),
+              Text('关联项目', style: Theme.of(context).textTheme.titleSmall),
               const Spacer(),
               TextButton.icon(
                 onPressed: onManage,
                 icon: const Icon(Icons.add_link_rounded),
-                label: Text(linkedGoals.isEmpty ? '选择目标' : '管理'),
+                label: Text(linkedGoals.isEmpty ? '选择项目' : '管理'),
               ),
             ],
           ),
           if (linkedGoals.isEmpty)
             Text(
-              '未关联目标。关联后，可在目标详情页看到这篇文档。',
+              '未关联项目。关联后，可在项目详情页看到这篇文档。',
               style: Theme.of(context).textTheme.bodySmall,
             )
           else

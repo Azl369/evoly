@@ -11,6 +11,7 @@ import 'package:evoly/features/goals/presentation/widgets/goal_edit_sheet.dart';
 import 'package:evoly/features/sync/presentation/sync_refresh_indicator.dart';
 import 'package:evoly/features/tasks/data/task_repository.dart';
 import 'package:evoly/features/tasks/domain/task_item.dart';
+import 'package:evoly/shared/ui/bottom_sheets/adaptive_form_modal.dart';
 import 'package:evoly/shared/ui/bottom_sheets/bottom_sheet_focus.dart';
 import 'package:evoly/shared/ui/bottom_sheets/responsive_bottom_sheet_body.dart';
 import 'package:evoly/shared/ui/components/animated_progress_bar.dart';
@@ -55,7 +56,7 @@ class _GoalListPageState extends State<GoalListPage>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('目标'),
+        title: const Text('项目'),
         actions: [
           IconButton(
             tooltip: '排序',
@@ -77,7 +78,7 @@ class _GoalListPageState extends State<GoalListPage>
 
   Widget _buildBody() {
     if (_loading) {
-      return const AppLoadingState(label: '正在整理目标');
+      return const AppLoadingState(label: '正在整理项目');
     }
 
     final errorMessage = _errorMessage;
@@ -94,8 +95,8 @@ class _GoalListPageState extends State<GoalListPage>
     if (_goals.isEmpty) {
       return const EmptyState(
         icon: Icons.flag_outlined,
-        title: '还没有目标',
-        message: '点击右上角新建目标。',
+        title: '还没有项目',
+        message: '点击右上角新建项目。',
       );
     }
 
@@ -110,7 +111,7 @@ class _GoalListPageState extends State<GoalListPage>
           const Expanded(
             child: EmptyState(
               icon: Icons.filter_alt_off_outlined,
-              title: '没有符合条件的目标',
+              title: '没有符合条件的项目',
               message: '请调整筛选条件。',
             ),
           ),
@@ -232,7 +233,7 @@ class _GoalListPageState extends State<GoalListPage>
   }
 
   Future<void> _showEditGoalSheet(Goal goal) async {
-    final updated = await showModalBottomSheet<bool>(
+    final updated = await showAdaptiveFormModal<bool>(
       context: context,
       isScrollControlled: true,
       requestFocus: false,
@@ -278,7 +279,7 @@ class _GoalListPageState extends State<GoalListPage>
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('删除目标？'),
+          title: const Text('删除项目？'),
           content: Text('「${goal.title}」和它的子任务都会被删除。'),
           actions: [
             TextButton(
@@ -316,7 +317,7 @@ class _GoalListPageState extends State<GoalListPage>
       notifyDataChanged();
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('目标已删除')),
+        const SnackBar(content: Text('项目已删除')),
       );
     } catch (error) {
       if (!mounted) {
@@ -365,7 +366,7 @@ class _GoalListPageState extends State<GoalListPage>
   }
 
   Future<void> _showCreateGoalSheet() async {
-    final created = await showModalBottomSheet<bool>(
+    final created = await showAdaptiveFormModal<bool>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -468,13 +469,13 @@ class _CreateGoalSheetState extends State<_CreateGoalSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('新建目标', style: Theme.of(context).textTheme.titleLarge),
+          Text('新建项目', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: AppSpacing.md),
           TextField(
             controller: _titleController,
             focusNode: _titleFocusNode,
             decoration: const InputDecoration(
-              labelText: '目标名称',
+              labelText: '项目名称',
               hintText: '例如：30 天完成 Flutter 基础',
             ),
           ),
@@ -754,7 +755,7 @@ class _GoalFilterChip extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      label: '${filter.label}，$count 个目标',
+      label: '${filter.label}，$count 个项目',
       child: AnimatedContainer(
         duration: MotionTokens.fast,
         curve: MotionTokens.standard,
@@ -936,7 +937,7 @@ class _GoalCard extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  tooltip: '编辑目标',
+                  tooltip: '编辑项目',
                   onPressed: onEdit,
                   icon: const Icon(Icons.more_horiz_rounded),
                   iconSize: 22,

@@ -2,7 +2,7 @@
 
 > 本轮重新定义：Nobi 不需要和 Evoly App 图标产生视觉关联，也不需要胸口带上升轨迹。Nobi 是一个独立 IP 角色，核心目标是 **足够可爱、足够有记忆点、适合后续做表情包和产品陪伴角色**。
 
-> 2026-07-05 更新：当前 Evoly 已转向 HUD 玻璃视觉语言，新的推荐方向请看 `NOBI_HUD_MASCOT_REDESIGN.md`。本文件保留为独立 IP 早期探索参考。
+> 2026-07-05 更新：当前 Evoly 已转向 HUD 玻璃视觉语言，新的推荐方向请看 [`NOBI_HUD_MASCOT_REDESIGN.md`](NOBI_HUD_MASCOT_REDESIGN.md)。本文件保留为独立 IP 早期探索参考。
 
 ---
 

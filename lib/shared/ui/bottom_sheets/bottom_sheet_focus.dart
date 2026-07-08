@@ -1,12 +1,18 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
-const bottomSheetKeyboardFocusDelay = Duration(milliseconds: 420);
+const bottomSheetKeyboardFocusDelay = Duration(milliseconds: 120);
+const androidFormKeyboardFocusDelay = Duration.zero;
 
 Future<void> requestFocusAfterBottomSheetEntrance(
   State state,
   FocusNode focusNode,
 ) async {
-  await Future<void>.delayed(bottomSheetKeyboardFocusDelay);
+  final delay = !kIsWeb && defaultTargetPlatform == TargetPlatform.android
+      ? androidFormKeyboardFocusDelay
+      : bottomSheetKeyboardFocusDelay;
+
+  await Future<void>.delayed(delay);
   if (!state.mounted) {
     return;
   }

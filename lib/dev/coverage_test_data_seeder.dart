@@ -70,8 +70,8 @@ class CoverageTestDataSeeder {
     return [
       Goal(
         id: 'coverage-goal-today-focus',
-        title: '今日高压发布检查 - 长标题用于测试目标卡片换行和编辑弹层密度',
-        description: '覆盖高优先级、进行中、长描述、临近截止日期和多任务进度。用于观察列表卡片、详情页、Coach 和编辑目标弹层。',
+        title: '今日高压发布检查 - 长标题用于测试项目卡片换行和编辑弹层密度',
+        description: '覆盖高优先级、进行中、长描述、临近截止日期和多任务进度。用于观察列表卡片、详情页、Coach 和编辑项目弹层。',
         type: GoalType.oneTime,
         priority: Priority.high,
         status: GoalStatus.inProgress,
@@ -97,7 +97,7 @@ class CoverageTestDataSeeder {
       Goal(
         id: 'coverage-goal-health',
         title: '晨间健康节律',
-        description: '覆盖已暂停、低优先级、无截止日期和周期目标。',
+        description: '覆盖已暂停、低优先级、无截止日期和周期项目。',
         type: GoalType.recurring,
         priority: Priority.low,
         status: GoalStatus.paused,
@@ -109,7 +109,7 @@ class CoverageTestDataSeeder {
       Goal(
         id: 'coverage-goal-docs',
         title: '文档库与知识笔记',
-        description: '覆盖已完成目标、满进度、关联文档和统计完成率。',
+        description: '覆盖已完成项目、满进度、关联文档和统计完成率。',
         type: GoalType.longTerm,
         priority: Priority.high,
         status: GoalStatus.completed,
@@ -134,7 +134,7 @@ class CoverageTestDataSeeder {
       ),
       Goal(
         id: 'coverage-goal-no-desc',
-        title: '无描述短目标',
+        title: '无描述短项目',
         type: GoalType.oneTime,
         priority: Priority.medium,
         status: GoalStatus.inProgress,
@@ -168,7 +168,7 @@ class CoverageTestDataSeeder {
       TaskItem(
         id: 'coverage-task-completed-today',
         goalId: 'coverage-goal-today-focus',
-        title: '今天已完成：回归编辑目标弹层',
+        title: '今天已完成：回归编辑项目弹层',
         description: '用于统计页今日完成、连续天数和完成反馈。',
         priority: Priority.medium,
         status: TaskStatus.completed,
@@ -304,7 +304,7 @@ class CoverageTestDataSeeder {
         id: 'coverage-task-abandoned-cancelled',
         goalId: 'coverage-goal-archive',
         title: '已取消：旧计划中的任务',
-        description: '覆盖已放弃目标下的取消任务。',
+        description: '覆盖已放弃项目下的取消任务。',
         priority: Priority.low,
         status: TaskStatus.cancelled,
         estimatedMinutes: 90,
@@ -319,16 +319,16 @@ class CoverageTestDataSeeder {
     return [
       EvolyDocument(
         id: 'coverage-doc-project-note',
-        title: '覆盖测试：目标编辑和今日页检查清单',
+        title: '覆盖测试：项目编辑和今日页检查清单',
         contentMarkdown: '''
 # 今日 UI 覆盖清单
 
-- [ ] 编辑目标弹层：键盘弹出时高度是否自然
-- [ ] 优先级/目标状态：长按后上下滑动选择
+- [ ] 编辑项目弹层：键盘弹出时高度是否自然
+- [ ] 优先级/项目状态：长按后上下滑动选择
 - [ ] Today Coach：浅色高级感、卡片密度
 - [ ] 任务卡片：长标题、延期、完成、删除反馈
 
-> 这份文档关联到高压发布目标，用于测试文档文件夹里的最新文档摘要。
+> 这份文档关联到高压发布项目，用于测试文档文件夹里的最新文档摘要。
 ''',
         type: DocumentType.projectNote,
         createdAt: now.subtract(const Duration(days: 2)),
@@ -336,11 +336,11 @@ class CoverageTestDataSeeder {
       ),
       EvolyDocument(
         id: 'coverage-doc-summary',
-        title: '覆盖测试：已完成目标总结',
+        title: '覆盖测试：已完成项目总结',
         contentMarkdown: '''
-# 已完成目标总结
+# 已完成项目总结
 
-本条用于测试目标完成状态、统计完成率、文档库项目总结类型。
+本条用于测试项目完成状态、统计完成率、文档库项目总结类型。
 
 ## 结果
 

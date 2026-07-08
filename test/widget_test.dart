@@ -6,6 +6,6 @@ void main() {
     await tester.pumpWidget(const EvolyApp());
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('今日计划'), findsOneWidget);
+    expect(find.text('计划'), findsWidgets);
   });
 }

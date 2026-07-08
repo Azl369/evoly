@@ -47,7 +47,7 @@ class SettingsPage extends StatelessWidget {
                 value: true,
                 onChanged: null,
                 title: Text('每日计划提醒'),
-                subtitle: Text('每天早上提醒今天要推进的目标'),
+                subtitle: Text('每天早上提醒今天要推进的项目'),
               ),
               ListTile(
                 contentPadding: EdgeInsets.symmetric(
@@ -111,7 +111,7 @@ class SettingsPage extends StatelessWidget {
                   ),
                   leading: const Icon(Icons.science_outlined),
                   title: const Text('生成覆盖测试数据'),
-                  subtitle: const Text('目标、任务、文档、提醒，各状态与长文本覆盖'),
+                  subtitle: const Text('项目、任务、文档、提醒，各状态与长文本覆盖'),
                   onTap: () => _seedCoverageTestData(context),
                 ),
               ],
@@ -165,7 +165,7 @@ class SettingsPage extends StatelessWidget {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            '已生成：${result.goals} 个目标、${result.tasks} 个任务、'
+            '已生成：${result.goals} 个项目、${result.tasks} 个任务、'
             '${result.documents} 篇文档、${result.reminders} 条提醒',
           ),
         ),

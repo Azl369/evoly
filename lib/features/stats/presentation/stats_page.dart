@@ -294,12 +294,12 @@ class _GoalCompletionCard extends StatelessWidget {
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Text(
-                  '目标完成率',
+                  '项目完成率',
                   style: theme.textTheme.titleMedium,
                 ),
               ),
               AppMetaPill(
-                label: '${snapshot.completedGoals}/${snapshot.totalGoals} 个目标',
+                label: '${snapshot.completedGoals}/${snapshot.totalGoals} 个项目',
                 icon: Icons.flag_outlined,
               ),
             ],

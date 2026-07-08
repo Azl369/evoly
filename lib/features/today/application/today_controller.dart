@@ -21,7 +21,7 @@ class TodayController extends ChangeNotifier {
   }
 
   Future<void> load(DateTime today) async {
-    _tasks = await taskRepository.findDueToday(today);
+    _tasks = await taskRepository.findPlanningCandidates(today);
     notifyListeners();
   }
 }

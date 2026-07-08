@@ -11,6 +11,7 @@ class TaskCard extends StatelessWidget {
     required this.task,
     super.key,
     this.onComplete,
+    this.contextLabel,
     this.trailing,
     this.margin = const EdgeInsets.symmetric(
       horizontal: AppSpacing.md,
@@ -20,6 +21,7 @@ class TaskCard extends StatelessWidget {
 
   final TaskItem task;
   final VoidCallback? onComplete;
+  final String? contextLabel;
   final Widget? trailing;
   final EdgeInsetsGeometry margin;
 
@@ -30,10 +32,14 @@ class TaskCard extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final titleStyle = textTheme.titleMedium?.copyWith(
       decoration: task.isCompleted ? TextDecoration.lineThrough : null,
+      decorationColor: task.isCompleted ? colors.onSurfaceVariant : null,
+      decorationThickness: task.isCompleted ? 2 : null,
       color: task.isCompleted ? colors.onSurfaceVariant : null,
     );
     final subtitleStyle = textTheme.bodyMedium?.copyWith(
       decoration: task.isCompleted ? TextDecoration.lineThrough : null,
+      decorationColor: task.isCompleted ? colors.onSurfaceVariant : null,
+      decorationThickness: task.isCompleted ? 1.5 : null,
       color: colors.onSurfaceVariant,
     );
     final priorityColor = _priorityColor(tokens, task.priority);
@@ -91,10 +97,22 @@ class TaskCard extends StatelessWidget {
             color: statusColor,
             selected: task.status != TaskStatus.pending,
           ),
+          if (contextLabel?.trim().isNotEmpty == true)
+            AppMetaPill(
+              label: contextLabel!.trim(),
+              icon: Icons.workspaces_outline,
+            ),
           if (task.dueDateTime != null)
             AppMetaPill(
               label: '截止 ${_formatTime(task.dueDateTime!)}',
               icon: Icons.schedule_outlined,
+            ),
+          if (task.completedAt != null)
+            AppMetaPill(
+              label: '完成 ${_formatTime(task.completedAt!)}',
+              icon: Icons.check_circle_outline_rounded,
+              color: tokens.statusSuccess,
+              selected: true,
             ),
         ],
       ),

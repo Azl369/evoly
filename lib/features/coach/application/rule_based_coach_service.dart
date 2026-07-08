@@ -228,7 +228,7 @@ class RuleBasedCoachService {
         CoachSuggestion(
           type: CoachSuggestionType.delayRisk,
           severity: CoachSuggestionSeverity.warning,
-          title: '有目标正在反复延期',
+          title: '有项目正在反复延期',
           description: '把「${delayedGoals.first.title}」拆成更小的下一步，先做 15 分钟。',
         ),
       );
@@ -260,7 +260,7 @@ class RuleBasedCoachService {
     }
 
     if (hasDelayRisk) {
-      return '今天任务量可控，但有目标出现延期信号。';
+      return '今天任务量可控，但有项目出现延期信号。';
     }
 
     return '今天有 $pendingTaskCount 个待完成任务，任务量可控。';

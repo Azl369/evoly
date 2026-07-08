@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:evoly/shared/ui/motion/motion_tokens.dart';
+import 'package:evoly/shared/ui/bottom_sheets/adaptive_form_modal.dart';
 import 'package:evoly/shared/ui/tokens/app_spacing.dart';
 
 class ResponsiveBottomSheetBody extends StatelessWidget {
@@ -14,33 +14,34 @@ class ResponsiveBottomSheetBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (EvolyFormPresentationScope.of(context) ==
+        EvolyFormPresentation.fullScreen) {
+      return _ResponsiveFullScreenBody(child: child);
+    }
+
     final mediaQuery = MediaQuery.of(context);
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final transitionDuration =
-        reduceMotion ? Duration.zero : MotionTokens.normal;
     final horizontalInset =
         mediaQuery.size.width >= 720 ? AppSpacing.xl : AppSpacing.pageGutter;
-    final maxHeight = (mediaQuery.size.height -
-            mediaQuery.viewInsets.bottom -
-            mediaQuery.padding.top -
-            AppSpacing.lg)
-        .clamp(minHeight, mediaQuery.size.height);
+    final availableHeight = mediaQuery.size.height -
+        mediaQuery.viewInsets.bottom -
+        mediaQuery.padding.top -
+        mediaQuery.padding.bottom -
+        AppSpacing.lg;
+    final maxHeight =
+        availableHeight.clamp(minHeight, mediaQuery.size.height).toDouble();
 
     return SafeArea(
       top: false,
-      child: AnimatedPadding(
-        duration: transitionDuration,
-        curve: MotionTokens.gentle,
+      child: Padding(
         padding: EdgeInsets.fromLTRB(
           horizontalInset,
           0,
           horizontalInset,
           mediaQuery.viewInsets.bottom + AppSpacing.md,
         ),
-        child: Center(
-          child: AnimatedContainer(
-            duration: transitionDuration,
-            curve: MotionTokens.gentle,
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: ConstrainedBox(
             constraints: BoxConstraints(
               maxHeight: maxHeight,
               maxWidth: 640,
@@ -50,6 +51,58 @@ class ResponsiveBottomSheetBody extends StatelessWidget {
               child: RepaintBoundary(child: child),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ResponsiveFullScreenBody extends StatelessWidget {
+  const _ResponsiveFullScreenBody({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      resizeToAvoidBottomInset: true,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.only(
+                  top: AppSpacing.xs,
+                  right: AppSpacing.sm,
+                ),
+                child: IconButton(
+                  tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                  onPressed: () => Navigator.maybePop(context),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.sm,
+                  AppSpacing.md,
+                  AppSpacing.xl,
+                ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 640),
+                    child: child,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

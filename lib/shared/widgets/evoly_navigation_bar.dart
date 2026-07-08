@@ -7,12 +7,12 @@ const _destinations = [
   _EvolyNavigationDestination(
     icon: Icons.today_outlined,
     selectedIcon: Icons.today_rounded,
-    label: '今日',
+    label: '计划',
   ),
   _EvolyNavigationDestination(
     icon: Icons.flag_outlined,
     selectedIcon: Icons.flag_rounded,
-    label: '目标',
+    label: '项目',
   ),
   _EvolyNavigationDestination(
     icon: Icons.library_books_outlined,

@@ -82,7 +82,7 @@ class _GoalEditSheetState extends State<GoalEditSheet> {
         minHeight: 260,
         spacing: AppSpacing.sm,
         headerSpacing: AppSpacing.sm,
-        title: '编辑目标',
+        title: '编辑项目',
         trailing: _AutoSaveStatus(
           saving: _saving,
           errorMessage: _saveError,
@@ -98,7 +98,7 @@ class _GoalEditSheetState extends State<GoalEditSheet> {
         ),
         children: [
           AppField(
-            label: '目标名称',
+            label: '项目名称',
             isRequired: true,
             child: TextField(
               controller: _titleController,
@@ -109,7 +109,7 @@ class _GoalEditSheetState extends State<GoalEditSheet> {
             ),
           ),
           AppField(
-            label: '目标描述（可选）',
+            label: '项目描述（可选）',
             child: TextField(
               controller: _descriptionController,
               minLines: 1,
@@ -168,13 +168,13 @@ class _GoalEditSheetState extends State<GoalEditSheet> {
       colorBuilder: _priorityColor,
       onChanged: _changePriority,
       compact: true,
-      semanticHint: '长按后上下滑动选择目标优先级',
+      semanticHint: '长按后上下滑动选择项目优先级',
     );
   }
 
   Widget _buildStatusSelector() {
     return SlideSelectField<GoalStatus>(
-      label: '目标状态',
+      label: '项目状态',
       values: GoalStatus.values,
       value: _selectedStatus,
       labelBuilder: (status) => status.label,
@@ -182,7 +182,7 @@ class _GoalEditSheetState extends State<GoalEditSheet> {
       colorBuilder: _statusColor,
       onChanged: _changeStatus,
       compact: true,
-      semanticHint: '长按后上下滑动选择目标状态',
+      semanticHint: '长按后上下滑动选择项目状态',
     );
   }
 
@@ -221,7 +221,7 @@ class _GoalEditSheetState extends State<GoalEditSheet> {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
       if (mounted) {
-        setState(() => _saveError = '目标名称不能为空');
+        setState(() => _saveError = '项目名称不能为空');
       }
       return;
     }

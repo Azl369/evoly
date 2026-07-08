@@ -18,7 +18,7 @@ void main() {
     var border = decoration.border! as Border;
 
     expect(decoration.color, tokens.cardSurface);
-    expect(decoration.boxShadow, same(tokens.shadowLow));
+    expect(decoration.boxShadow, isNull);
     expect(border.top.color, tokens.borderSubtle);
 
     await _pumpComponent(
@@ -33,7 +33,7 @@ void main() {
     decoration = _surfaceDecoration(tester);
     border = decoration.border! as Border;
 
-    expect(decoration.boxShadow, same(tokens.shadowMedium));
+    expect(decoration.boxShadow, same(tokens.shadowLow));
     expect(border.top.color, tokens.borderEmphasized);
   });
 

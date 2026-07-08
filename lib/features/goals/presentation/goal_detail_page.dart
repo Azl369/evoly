@@ -17,6 +17,7 @@ import 'package:evoly/features/tasks/domain/task_item.dart';
 import 'package:evoly/features/tasks/presentation/widgets/task_card.dart';
 import 'package:evoly/features/tasks/presentation/widgets/task_create_sheet.dart';
 import 'package:evoly/features/tasks/presentation/widgets/task_edit_sheet.dart';
+import 'package:evoly/shared/ui/bottom_sheets/adaptive_form_modal.dart';
 import 'package:evoly/shared/ui/components/animated_progress_bar.dart';
 import 'package:evoly/shared/ui/components/app_components.dart';
 import 'package:evoly/shared/ui/motion/motion_tokens.dart';
@@ -42,6 +43,7 @@ class _GoalDetailPageState extends State<GoalDetailPage>
     with DataRefreshListener<GoalDetailPage> {
   Goal? _goal;
   final List<TaskItem> _tasks = [];
+  final List<Goal> _goals = [];
   final List<EvolyDocument> _documents = [];
   var _loading = true;
   String? _errorMessage;
@@ -58,10 +60,10 @@ class _GoalDetailPageState extends State<GoalDetailPage>
   @override
   Widget build(BuildContext context) {
     return AppPageScaffold(
-      title: '目标详情',
+      title: '项目详情',
       actions: [
         IconButton(
-          tooltip: '编辑目标',
+          tooltip: '编辑项目',
           onPressed: _goal == null ? null : _showEditGoalSheet,
           icon: const Icon(Icons.edit_outlined),
         ),
@@ -79,13 +81,13 @@ class _GoalDetailPageState extends State<GoalDetailPage>
     if (widget.goalId.isEmpty) {
       return const EmptyState(
         icon: Icons.link_off_outlined,
-        title: '目标参数缺失',
-        message: '请从目标列表重新进入详情页。',
+        title: '项目参数缺失',
+        message: '请从项目列表重新进入详情页。',
       );
     }
 
     if (_loading) {
-      return const AppLoadingState(label: '正在打开目标');
+      return const AppLoadingState(label: '正在打开项目');
     }
 
     final errorMessage = _errorMessage;
@@ -101,8 +103,8 @@ class _GoalDetailPageState extends State<GoalDetailPage>
     if (goal == null) {
       return const EmptyState(
         icon: Icons.flag_outlined,
-        title: '目标不存在',
-        message: '这个目标可能已经被删除了。',
+        title: '项目不存在',
+        message: '这个项目可能已经被删除了。',
       );
     }
 
@@ -168,6 +170,7 @@ class _GoalDetailPageState extends State<GoalDetailPage>
       final results = await Future.wait([
         goalRepository.findById(widget.goalId),
         taskRepository.findByGoalId(widget.goalId),
+        goalRepository.findAll(),
         documentRepository.findByGoalId(widget.goalId, limit: 3),
       ]);
 
@@ -180,9 +183,12 @@ class _GoalDetailPageState extends State<GoalDetailPage>
         _tasks
           ..clear()
           ..addAll(results[1] as List<TaskItem>);
+        _goals
+          ..clear()
+          ..addAll(results[2] as List<Goal>);
         _documents
           ..clear()
-          ..addAll(results[2] as List<EvolyDocument>);
+          ..addAll(results[3] as List<EvolyDocument>);
         _loading = false;
       });
     } catch (error) {
@@ -198,7 +204,7 @@ class _GoalDetailPageState extends State<GoalDetailPage>
   }
 
   Future<void> _showCreateTaskSheet() async {
-    final created = await showModalBottomSheet<bool>(
+    final created = await showAdaptiveFormModal<bool>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -316,7 +322,7 @@ class _GoalDetailPageState extends State<GoalDetailPage>
       return;
     }
 
-    final updated = await showModalBottomSheet<bool>(
+    final updated = await showAdaptiveFormModal<bool>(
       context: context,
       isScrollControlled: true,
       requestFocus: false,
@@ -458,7 +464,7 @@ class _GoalDetailPageState extends State<GoalDetailPage>
       builder: (context) {
         return AlertDialog(
           title: const Text('删除任务？'),
-          content: Text('「${task.title}」会从这个目标中移除。'),
+          content: Text('「${task.title}」会从这个项目中移除。'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -523,7 +529,7 @@ class _GoalDetailPageState extends State<GoalDetailPage>
       return;
     }
 
-    final updated = await showModalBottomSheet<bool>(
+    final updated = await showAdaptiveFormModal<bool>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -532,6 +538,7 @@ class _GoalDetailPageState extends State<GoalDetailPage>
           title: '编辑子任务',
           task: task,
           reminder: reminder,
+          availableGoals: _goals,
           onSave: (updatedTask, reminder) async {
             await _updateTask(task, updatedTask);
             await reminderService.saveForTask(
@@ -552,32 +559,53 @@ class _GoalDetailPageState extends State<GoalDetailPage>
 
   Future<void> _updateTask(TaskItem oldTask, TaskItem newTask) async {
     final index = _tasks.indexWhere((task) => task.id == oldTask.id);
-    if (index == -1) {
-      return;
-    }
+    final previousTasks = [..._tasks];
+    final movedToOtherProject = newTask.goalId != widget.goalId;
 
-    setState(() {
-      _tasks[index] = newTask;
-    });
+    if (index != -1) {
+      setState(() {
+        if (movedToOtherProject) {
+          _tasks.removeAt(index);
+        } else {
+          _tasks[index] = newTask;
+        }
+      });
+    }
 
     try {
       await context.read<TaskRepository>().save(newTask);
       if (mounted) {
         notifyDataChanged();
+        if (index != -1 && movedToOtherProject) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('已移动到「${_projectTitleFor(newTask.goalId)}」'),
+            ),
+          );
+        }
       }
     } catch (error) {
       if (!mounted) {
         return;
       }
 
-      setState(() {
-        _tasks[index] = oldTask;
-      });
+      if (index != -1) {
+        setState(() {
+          _tasks
+            ..clear()
+            ..addAll(previousTasks);
+        });
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('保存失败：$error')),
       );
     }
+  }
+
+  String _projectTitleFor(String goalId) {
+    return _goals.where((goal) => goal.id == goalId).firstOrNull?.title ??
+        '未同步项目';
   }
 }
 
@@ -718,7 +746,7 @@ class _GoalDocumentsSection extends StatelessWidget {
     final tokens = EvolyDesignTokens.of(context);
 
     return AppSection(
-      title: '目标档案',
+      title: '项目档案',
       padding: EdgeInsets.zero,
       trailing: TextButton.icon(
         onPressed: onOpenFolder,
@@ -837,6 +865,23 @@ class _GoalTasksSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final activeTasks = tasks.where((task) => !task.isCompleted).toList();
+    final completedTasks = tasks.where((task) => task.isCompleted).toList()
+      ..sort((left, right) {
+        final leftCompletedAt = left.completedAt;
+        final rightCompletedAt = right.completedAt;
+        if (leftCompletedAt != null && rightCompletedAt != null) {
+          return rightCompletedAt.compareTo(leftCompletedAt);
+        }
+        if (leftCompletedAt == null && rightCompletedAt != null) {
+          return 1;
+        }
+        if (leftCompletedAt != null && rightCompletedAt == null) {
+          return -1;
+        }
+        return left.createdAt.compareTo(right.createdAt);
+      });
+
     return AppSection(
       title: '子任务',
       padding: EdgeInsets.zero,
@@ -861,18 +906,88 @@ class _GoalTasksSection extends StatelessWidget {
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (final task in tasks)
-                  _TaskRow(
-                    task: task,
-                    onComplete:
-                        task.isCompleted ? null : () => onCompleteTask(task),
-                    onEdit: () => onEditTask(task),
-                    onPostpone:
-                        task.isCompleted ? null : () => onPostponeTask(task),
-                    onDelete: () => onDeleteTask(task),
+                if (activeTasks.isNotEmpty) ...[
+                  _GoalTaskGroupHeader(
+                    title: '待完成',
+                    count: activeTasks.length,
+                    icon: Icons.radio_button_unchecked_rounded,
                   ),
+                  for (final task in activeTasks)
+                    _TaskRow(
+                      task: task,
+                      onComplete: () => onCompleteTask(task),
+                      onEdit: () => onEditTask(task),
+                      onPostpone: () => onPostponeTask(task),
+                      onDelete: () => onDeleteTask(task),
+                    ),
+                ],
+                if (completedTasks.isNotEmpty) ...[
+                  _GoalTaskGroupHeader(
+                    title: '已完成',
+                    count: completedTasks.length,
+                    icon: Icons.check_circle_outline_rounded,
+                    muted: true,
+                  ),
+                  for (final task in completedTasks)
+                    _TaskRow(
+                      task: task,
+                      onEdit: () => onEditTask(task),
+                      onDelete: () => onDeleteTask(task),
+                    ),
+                ],
               ],
             ),
+    );
+  }
+}
+
+class _GoalTaskGroupHeader extends StatelessWidget {
+  const _GoalTaskGroupHeader({
+    required this.title,
+    required this.count,
+    required this.icon,
+    this.muted = false,
+  });
+
+  final String title;
+  final int count;
+  final IconData icon;
+  final bool muted;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final tokens = EvolyDesignTokens.of(context);
+    final color = muted ? tokens.textSecondary : tokens.textPrimary;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xs,
+        AppSpacing.sm,
+        AppSpacing.xs,
+        AppSpacing.xs,
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Text(
+              title,
+              style: textTheme.labelLarge?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          AppMetaPill(
+            label: '$count 项',
+            icon: icon,
+            color: muted ? tokens.statusSuccess : null,
+            selected: muted,
+          ),
+        ],
+      ),
     );
   }
 }

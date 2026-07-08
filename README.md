@@ -54,17 +54,14 @@ V0.4-alpha 当前重点：
 
 ## 文档
 
-- 产品目标：`PRODUCT_GOAL.md`
-- 架构设计：`ARCHITECTURE_DESIGN.md`
-- 调试速查：`DEBUG_GUIDE.md`
-- V0.1 研发计划：`V0_1_DEV_PLAN.md`
-- V0.2 研发计划：`V0_2_DEV_PLAN.md`
-- V0.3 研发计划：`V0_3_DEV_PLAN.md`
-- V0.4 研发计划：`V0_4_DEV_PLAN.md`
-- 主题系统研发计划：`THEME_SYSTEM_DEV_PLAN.md`
-- Windows 双形态开发计划：`WINDOWS_DUAL_MODE_DEV_PLAN.md`
-- Supabase 同步 schema：`supabase/sync_schema.sql`
-- 时序图渲染器开发计划：`TIMING_DIAGRAM_RENDERER_DEV_PLAN.md`
+完整文档目录见 [`docs/README.md`](docs/README.md)。
+
+- 产品目标：[`docs/product/PRODUCT_GOAL.md`](docs/product/PRODUCT_GOAL.md)
+- 架构设计：[`docs/dev/ARCHITECTURE_DESIGN.md`](docs/dev/ARCHITECTURE_DESIGN.md)
+- 调试速查：[`docs/dev/DEBUG_GUIDE.md`](docs/dev/DEBUG_GUIDE.md)
+- V0.4 研发计划：[`docs/plans/V0_4_DEV_PLAN.md`](docs/plans/V0_4_DEV_PLAN.md)
+- Release 问题修复计划：[`docs/plans/V0_4_RELEASE_FIX_PLAN.md`](docs/plans/V0_4_RELEASE_FIX_PLAN.md)
+- Supabase 同步 schema：[`supabase/sync_schema.sql`](supabase/sync_schema.sql)
 
 ## 技术方向
 

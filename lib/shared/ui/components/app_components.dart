@@ -27,15 +27,23 @@ class AppPageScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = EvolyDesignTokens.of(context);
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(title: Text(title), actions: actions),
-      body: DecoratedBox(
-        decoration: BoxDecoration(gradient: tokens.backgroundGradient),
-        child: safeAreaBody ? SafeArea(child: body) : body,
+    return DecoratedBox(
+      decoration: BoxDecoration(gradient: tokens.backgroundGradient),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: Text(title),
+          actions: actions,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          shadowColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+        ),
+        body: safeAreaBody ? SafeArea(child: body) : body,
+        bottomNavigationBar: bottomNavigationBar,
+        floatingActionButton: floatingActionButton,
       ),
-      bottomNavigationBar: bottomNavigationBar,
-      floatingActionButton: floatingActionButton,
     );
   }
 }
@@ -304,14 +312,14 @@ class _AppSurfaceState extends State<AppSurface> {
     final shadow = switch (widget.variant) {
       AppSurfaceVariant.plain => null,
       AppSurfaceVariant.muted => null,
-      AppSurfaceVariant.raised => tokens.shadowLow,
-      AppSurfaceVariant.glass => tokens.shadowMedium,
-      AppSurfaceVariant.selected => tokens.shadowMedium,
-      AppSurfaceVariant.warning => tokens.shadowLow,
+      AppSurfaceVariant.raised => null,
+      AppSurfaceVariant.glass => tokens.shadowLow,
+      AppSurfaceVariant.selected => tokens.shadowLow,
+      AppSurfaceVariant.warning => null,
     };
 
     if (_hovered && interactive) {
-      return shadow == null ? tokens.shadowLow : tokens.shadowMedium;
+      return shadow ?? tokens.shadowLow;
     }
 
     return shadow;

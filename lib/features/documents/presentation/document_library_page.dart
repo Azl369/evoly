@@ -324,13 +324,13 @@ class _DocumentLibraryPageState extends State<DocumentLibraryPage> {
           icon: Icons.folder_copy_outlined,
           title: '还没有文档',
           message:
-              emptyFolders.isEmpty ? '新建文档，或从目标档案夹创建关联文档。' : '展开空档案夹可新建关联文档。',
+              emptyFolders.isEmpty ? '新建文档，或从项目档案夹创建关联文档。' : '展开空档案夹可新建关联文档。',
           actionLabel: '新建文档',
           onAction: _openCreateDocument,
           compact: true,
         ),
       if (documentFolders.isNotEmpty) ...[
-        const _SectionHeader(title: '目标档案夹'),
+        const _SectionHeader(title: '项目档案夹'),
         const SizedBox(height: AppSpacing.sm),
         ...documentFolders.map((folder) {
           return Padding(
@@ -430,7 +430,7 @@ class _DocumentLibraryPageState extends State<DocumentLibraryPage> {
         EmptyState(
           icon: Icons.inventory_2_outlined,
           title: '暂无未归档文档',
-          message: '未关联目标的文档会显示在这里。',
+          message: '未关联项目的文档会显示在这里。',
           compact: true,
         ),
       ];
@@ -439,7 +439,7 @@ class _DocumentLibraryPageState extends State<DocumentLibraryPage> {
     return [
       const _SectionHeader(
         title: '未归档',
-        subtitle: '未关联目标的文档。',
+        subtitle: '未关联项目的文档。',
       ),
       const SizedBox(height: AppSpacing.sm),
       ...visibleUnfiledDocuments.map((document) {
@@ -492,14 +492,14 @@ class _DocumentLibraryPageState extends State<DocumentLibraryPage> {
           icon: Icons.folder_copy_outlined,
           title: '还没有文档',
           message:
-              emptyFolders.isEmpty ? '新建文档，或从目标档案夹创建关联文档。' : '展开空档案夹可新建关联文档。',
+              emptyFolders.isEmpty ? '新建文档，或从项目档案夹创建关联文档。' : '展开空档案夹可新建关联文档。',
           actionLabel: '新建文档',
           onAction: _openCreateDocument,
           compact: true,
         ),
       if (documentFolders.isNotEmpty) ...[
         const _SectionHeader(
-          title: '目标档案夹',
+          title: '项目档案夹',
         ),
         const SizedBox(height: AppSpacing.sm),
         ...documentFolders.map((folder) {
@@ -516,7 +516,7 @@ class _DocumentLibraryPageState extends State<DocumentLibraryPage> {
       if (unfiledDocuments.isNotEmpty) ...[
         const _SectionHeader(
           title: '未归档',
-          subtitle: '未关联目标的文档。',
+          subtitle: '未关联项目的文档。',
         ),
         const SizedBox(height: AppSpacing.sm),
         ...visibleUnfiledDocuments.map((document) {
@@ -793,7 +793,7 @@ class _LibrarySummaryCard extends StatelessWidget {
                   SizedBox(
                     width: itemWidth,
                     child: _SummaryMetric(
-                      label: '空目标',
+                      label: '空项目',
                       value: '$emptyFolderCount',
                       icon: Icons.folder_off_outlined,
                       color: colorScheme.onSurfaceVariant,
@@ -869,7 +869,7 @@ class _LibrarySearchField extends StatelessWidget {
       controller: controller,
       decoration: InputDecoration(
         prefixIcon: const Icon(Icons.search_rounded),
-        hintText: '搜索目标、标题、正文或类型',
+        hintText: '搜索项目、标题、正文或类型',
         suffixIcon: isSearching
             ? IconButton(
                 tooltip: '清空搜索',
@@ -958,7 +958,7 @@ class _EmptyFolderDisclosure extends StatelessWidget {
                 Text('$count 个空档案夹', style: theme.textTheme.titleMedium),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  '展开查看无文档目标。',
+                  '展开查看无文档项目。',
                   style: theme.textTheme.bodySmall,
                 ),
               ],

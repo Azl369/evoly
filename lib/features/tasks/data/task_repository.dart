@@ -1,3 +1,4 @@
+import 'package:evoly/core/domain/priority.dart';
 import 'package:evoly/features/tasks/domain/task_item.dart';
 
 abstract class TaskRepository {
@@ -7,7 +8,16 @@ abstract class TaskRepository {
 
   Future<List<TaskItem>> findDueToday(DateTime today);
 
+  Future<List<TaskItem>> findPlanningCandidates(DateTime today);
+
+  Future<List<TaskItem>> findCompletedToday(DateTime today);
+
   Future<void> save(TaskItem task);
+
+  Future<void> reorderWithinPriority({
+    required Priority priority,
+    required List<String> orderedTaskIds,
+  });
 
   Future<void> delete(String id);
 }

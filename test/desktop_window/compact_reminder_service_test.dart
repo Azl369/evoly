@@ -104,7 +104,20 @@ class _FakeTaskRepository implements TaskRepository {
   Future<List<TaskItem>> findDueToday(DateTime today) async => tasks;
 
   @override
+  Future<List<TaskItem>> findPlanningCandidates(DateTime today) async => tasks;
+
+  @override
+  Future<List<TaskItem>> findCompletedToday(DateTime today) async =>
+      tasks.where((task) => task.status == TaskStatus.completed).toList();
+
+  @override
   Future<void> save(TaskItem task) async {}
+
+  @override
+  Future<void> reorderWithinPriority({
+    required Priority priority,
+    required List<String> orderedTaskIds,
+  }) async {}
 }
 
 class _FakeReminderRepository implements ReminderRepository {

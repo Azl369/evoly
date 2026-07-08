@@ -10,7 +10,7 @@ class ReviewPage extends StatelessWidget {
       body: EmptyState(
         icon: Icons.rate_review_outlined,
         title: '还没有复盘',
-        message: '完成目标后可创建复盘。',
+        message: '完成项目后可创建复盘。',
       ),
     );
   }

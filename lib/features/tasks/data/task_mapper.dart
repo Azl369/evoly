@@ -17,6 +17,7 @@ class TaskMapper {
       completedAt: AppDatabaseDateCodec.decodeNullableDate(map['completed_at']),
       createdAt: AppDatabaseDateCodec.decodeDate(map['created_at']!),
       updatedAt: AppDatabaseDateCodec.decodeDate(map['updated_at']!),
+      sortOrder: map['sort_order'] as int? ?? 0,
     );
   }
 
@@ -37,6 +38,7 @@ class TaskMapper {
           : AppDatabaseDateCodec.encodeDate(task.completedAt!),
       'created_at': AppDatabaseDateCodec.encodeDate(task.createdAt),
       'updated_at': AppDatabaseDateCodec.encodeDate(task.updatedAt),
+      'sort_order': task.sortOrder,
     };
   }
 }

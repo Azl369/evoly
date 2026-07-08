@@ -48,7 +48,7 @@ class AppDatabase {
     _database = await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 5,
+        version: 6,
         onCreate: _createSchema,
         onUpgrade: _upgradeSchema,
         onOpen: _enableForeignKeys,
@@ -116,6 +116,7 @@ class AppDatabase {
         completed_at INTEGER,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0,
         FOREIGN KEY(goal_id) REFERENCES goals(id) ON DELETE CASCADE
       )
     ''');
@@ -125,6 +126,7 @@ class AppDatabase {
         'CREATE INDEX idx_tasks_due_date_time ON tasks(due_date_time)');
     await db.execute('CREATE INDEX idx_tasks_status ON tasks(status)');
     await db.execute('CREATE INDEX idx_tasks_priority ON tasks(priority)');
+    await db.execute('CREATE INDEX idx_tasks_sort_order ON tasks(sort_order)');
 
     await _createRemindersSchema(db);
     await _createDocumentsSchema(db);
@@ -148,6 +150,29 @@ class AppDatabase {
     if (oldVersion < 5) {
       await _createSyncSchema(db);
     }
+    if (oldVersion < 6) {
+      await _ensureTaskSortOrderSchema(db);
+    }
+  }
+
+  Future<void> _ensureTaskSortOrderSchema(Database db) async {
+    final columns = await db.rawQuery('PRAGMA table_info(tasks)');
+    final hasSortOrder =
+        columns.any((column) => column['name'] == 'sort_order');
+    if (!hasSortOrder) {
+      await db.execute(
+        'ALTER TABLE tasks ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0',
+      );
+    }
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_tasks_sort_order ON tasks(sort_order)',
+    );
+    await db.execute('''
+      UPDATE tasks
+      SET sort_order = created_at
+      WHERE sort_order = 0
+    ''');
   }
 
   Future<void> _createRemindersSchema(Database db) async {
@@ -299,7 +324,7 @@ class AppDatabase {
     await db.insert('goals', {
       'id': goalId,
       'title': '30 天完成 Flutter 基础',
-      'description': '把学习目标拆成每日任务。',
+      'description': '把学习项目拆成每日任务。',
       'type': GoalType.longTerm.name,
       'priority': Priority.high.name,
       'status': GoalStatus.inProgress.name,
@@ -322,6 +347,7 @@ class AppDatabase {
       'completed_at': null,
       'created_at': _encodeDate(now),
       'updated_at': _encodeDate(now),
+      'sort_order': _encodeDate(now),
     });
 
     await db.insert('tasks', {
@@ -336,6 +362,7 @@ class AppDatabase {
       'completed_at': null,
       'created_at': _encodeDate(now),
       'updated_at': _encodeDate(now),
+      'sort_order': _encodeDate(now) + 1,
     });
   }
 

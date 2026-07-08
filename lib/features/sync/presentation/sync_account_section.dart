@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:evoly/features/sync/application/supabase_auth_controller.dart';
 import 'package:evoly/features/sync/application/sync_coordinator.dart';
+import 'package:evoly/shared/ui/bottom_sheets/adaptive_form_modal.dart';
 import 'package:evoly/shared/ui/bottom_sheets/responsive_bottom_sheet_body.dart';
 import 'package:evoly/shared/ui/tokens/app_spacing.dart';
 
@@ -42,7 +43,7 @@ class SyncAccountSection extends StatelessWidget {
   }
 
   Future<void> _showSyncSheet(BuildContext context) {
-    return showModalBottomSheet<void>(
+    return showAdaptiveFormModal<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,

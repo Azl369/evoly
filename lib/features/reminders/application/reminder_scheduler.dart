@@ -15,7 +15,7 @@ class ReminderScheduler {
     await repository.save(reminder);
     await notificationService.schedule(
       id: reminder.id,
-      title: '目标提醒',
+      title: '项目提醒',
       body: '有一个计划需要你推进一下。',
       scheduledAt: reminder.remindAt,
       repeat: _notificationRepeatFor(reminder.repeatRule),
@@ -31,7 +31,7 @@ class ReminderScheduler {
 
       await notificationService.schedule(
         id: reminder.id,
-        title: '目标提醒',
+        title: '项目提醒',
         body: '有一个计划需要推进。',
         scheduledAt: reminder.remindAt,
         repeat: _notificationRepeatFor(reminder.repeatRule),

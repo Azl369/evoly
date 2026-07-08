@@ -45,7 +45,7 @@ class _GoalDocumentFolderPageState extends State<GoalDocumentFolderPage> {
 
   @override
   Widget build(BuildContext context) {
-    final goalTitle = _goal?.title ?? '目标档案夹';
+    final goalTitle = _goal?.title ?? '项目档案夹';
 
     return AppPageScaffold(
       title: goalTitle,
@@ -72,8 +72,8 @@ class _GoalDocumentFolderPageState extends State<GoalDocumentFolderPage> {
     if (widget.goalId.isEmpty) {
       return const EmptyState(
         icon: Icons.link_off_outlined,
-        title: '目标参数缺失',
-        message: '请从文档库或目标详情重新进入目标档案夹。',
+        title: '项目参数缺失',
+        message: '请从文档库或项目详情重新进入项目档案夹。',
       );
     }
 
@@ -94,8 +94,8 @@ class _GoalDocumentFolderPageState extends State<GoalDocumentFolderPage> {
     if (goal == null) {
       return const EmptyState(
         icon: Icons.folder_off_outlined,
-        title: '目标不存在',
-        message: '这个目标可能已经被删除，无法打开对应档案夹。',
+        title: '项目不存在',
+        message: '这个项目可能已经被删除，无法打开对应档案夹。',
       );
     }
 
@@ -147,7 +147,7 @@ class _GoalDocumentFolderPageState extends State<GoalDocumentFolderPage> {
             child: _documents.isEmpty
                 ? const EmptyState(
                     icon: Icons.article_outlined,
-                    title: '这个目标还没有文档',
+                    title: '这个项目还没有文档',
                     message: '可新建过程记录或项目总结。',
                   )
                 : Column(

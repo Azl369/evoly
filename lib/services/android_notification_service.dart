@@ -13,7 +13,7 @@ class AndroidNotificationService implements NotificationService {
 
   static const String _channelId = 'evoly_reminders';
   static const String _channelName = 'Evoly 提醒';
-  static const String _channelDescription = 'Evoly 目标与任务提醒通知';
+  static const String _channelDescription = 'Evoly 项目与任务提醒通知';
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();

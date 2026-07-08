@@ -371,3 +371,25 @@ flutter run -d 192.168.31.14:<当前端口>
 - 系统状态栏/导航栏
 - 本地通知
 - 后台/锁屏行为
+
+### 测试打包
+cd D:\time_table
+```powershell
+$env:Path = 'D:\dev\jdk-17\bin;' + [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
+$env:JAVA_HOME='D:\dev\jdk-17'
+$env:PUB_CACHE='D:\dev\pub-cache'
+$env:GRADLE_USER_HOME='D:\dev\gradle'
+$env:FLUTTER_STORAGE_BASE_URL='https://storage.flutter-io.cn'
+$env:PUB_HOSTED_URL='https://pub.flutter-io.cn'
+
+$env:SUPABASE_URL='https://qsyvkpydllbzjepctovi.supabase.co'
+$env:SUPABASE_PUBLISHABLE_KEY='sb_publishable_dkkDieAkwCX7RmyEqIHRpA_1_KA1Fr8'
+
+flutter build apk --release `
+  --dart-define=SUPABASE_URL=$env:SUPABASE_URL `
+  --dart-define=SUPABASE_PUBLISHABLE_KEY=$env:SUPABASE_PUBLISHABLE_KEY
+
+flutter build windows `
+  --dart-define=SUPABASE_URL=$env:SUPABASE_URL `
+  --dart-define=SUPABASE_PUBLISHABLE_KEY=$env:SUPABASE_PUBLISHABLE_KEY
+```

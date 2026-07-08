@@ -218,6 +218,6 @@ CoachTaskContext _task({
     estimatedMinutes: estimatedMinutes,
     dueDateTime: dueDateTime,
     completedAt: completedAt,
-    goalTitle: '成长目标',
+    goalTitle: '成长项目',
   );
 }

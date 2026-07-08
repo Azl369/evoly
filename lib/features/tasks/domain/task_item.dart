@@ -28,6 +28,7 @@ class TaskItem {
     required this.createdAt,
     required this.updatedAt,
     this.description = '',
+    this.sortOrder = 0,
     this.estimatedMinutes = 0,
     this.dueDateTime,
     this.completedAt,
@@ -44,6 +45,7 @@ class TaskItem {
   final DateTime? completedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final int sortOrder;
 
   bool get isCompleted => status == TaskStatus.completed;
 
@@ -59,6 +61,7 @@ class TaskItem {
   }
 
   TaskItem copyWith({
+    String? goalId,
     String? title,
     String? description,
     Priority? priority,
@@ -67,12 +70,13 @@ class TaskItem {
     DateTime? dueDateTime,
     DateTime? completedAt,
     DateTime? updatedAt,
+    int? sortOrder,
     bool clearDueDateTime = false,
     bool clearCompletedAt = false,
   }) {
     return TaskItem(
       id: id,
-      goalId: goalId,
+      goalId: goalId ?? this.goalId,
       title: title ?? this.title,
       description: description ?? this.description,
       priority: priority ?? this.priority,
@@ -82,6 +86,7 @@ class TaskItem {
       completedAt: clearCompletedAt ? null : completedAt ?? this.completedAt,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      sortOrder: sortOrder ?? this.sortOrder,
     );
   }
 }

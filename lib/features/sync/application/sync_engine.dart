@@ -70,7 +70,7 @@ class SyncEngine {
         skipped: false,
         message: applyResult.skippedCount == 0
             ? null
-            : '同步部分完成：有 ${applyResult.skippedCount} 条子项在等待对应目标同步',
+            : '同步部分完成：有 ${applyResult.skippedCount} 条子项在等待对应项目同步',
       );
     } catch (error) {
       await outboxRepository.markFailed(pendingIds, error.toString());

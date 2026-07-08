@@ -28,7 +28,7 @@ String buildProjectSummaryMarkdown({
   }
 
   final goalDescription = goal.description.trim().isEmpty
-      ? '（这里补充这个目标最初想解决什么问题，以及为什么重要。）'
+      ? '（这里补充这个项目最初想解决什么问题，以及为什么重要。）'
       : goal.description.trim();
 
   return '''
@@ -36,7 +36,7 @@ String buildProjectSummaryMarkdown({
 
 > 由 Evoly 于 $generatedDate 生成。你可以继续编辑，把真实过程和经验补充完整。
 
-## 1. 项目目标
+## 1. 项目初衷
 
 $goalDescription
 
@@ -77,7 +77,7 @@ ${taskLines(unfinishedTasks, completed: false)}
 
 ## 8. 可复用经验
 
-- 下次遇到类似目标，可以复用什么流程、模板或判断？
+- 下次遇到类似项目，可以复用什么流程、模板或判断？
 
 ## 9. 下次可以改进
 

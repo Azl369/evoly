@@ -77,7 +77,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('本周完成图表'), findsOneWidget);
-    expect(find.text('目标完成率'), findsOneWidget);
+    expect(find.text('项目完成率'), findsOneWidget);
   });
 }
 

@@ -37,7 +37,7 @@ void main() {
         EvolyDocument(
           id: 'doc-unfiled',
           title: '独立灵感',
-          contentMarkdown: '暂时还没有关联目标。',
+          contentMarkdown: '暂时还没有关联项目。',
           type: DocumentType.knowledge,
           createdAt: now,
           updatedAt: now,
@@ -47,7 +47,7 @@ void main() {
         EvolyDocument(
           id: 'doc-unfiled',
           title: '独立灵感',
-          contentMarkdown: '暂时还没有关联目标。',
+          contentMarkdown: '暂时还没有关联项目。',
           type: DocumentType.knowledge,
           createdAt: now,
           updatedAt: now,
@@ -68,7 +68,7 @@ void main() {
 
     expect(find.text('文档库'), findsOneWidget);
     expect(find.text('文档概览'), findsOneWidget);
-    expect(find.text('目标档案夹'), findsOneWidget);
+    expect(find.text('项目档案夹'), findsOneWidget);
     expect(find.byType(AppSurface), findsAtLeastNWidgets(2));
 
     await tester.drag(find.byType(ListView), const Offset(0, -420));
