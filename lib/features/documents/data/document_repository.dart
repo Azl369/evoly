@@ -70,24 +70,22 @@ class InMemoryDocumentRepository implements DocumentRepository {
 
   @override
   Future<List<EvolyDocument>> findUnfiled({String? query}) async {
-    return _documents
-        .where((document) {
-          if (document.deletedAt != null) {
-            return false;
-          }
-          if (_linkedGoalIdsByDocumentId[document.id]?.isNotEmpty == true) {
-            return false;
-          }
+    return _documents.where((document) {
+      if (document.deletedAt != null) {
+        return false;
+      }
+      if (_linkedGoalIdsByDocumentId[document.id]?.isNotEmpty == true) {
+        return false;
+      }
 
-          final normalizedQuery = query?.trim().toLowerCase();
-          if (normalizedQuery == null || normalizedQuery.isEmpty) {
-            return true;
-          }
+      final normalizedQuery = query?.trim().toLowerCase();
+      if (normalizedQuery == null || normalizedQuery.isEmpty) {
+        return true;
+      }
 
-          return document.title.toLowerCase().contains(normalizedQuery) ||
-              document.contentMarkdown.toLowerCase().contains(normalizedQuery);
-        })
-        .toList()
+      return document.title.toLowerCase().contains(normalizedQuery) ||
+          document.contentMarkdown.toLowerCase().contains(normalizedQuery);
+    }).toList()
       ..sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
   }
 

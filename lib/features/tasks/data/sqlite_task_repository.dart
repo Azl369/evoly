@@ -92,6 +92,7 @@ class SqliteTaskRepository implements TaskRepository {
     final db = await database.database;
     final start = DateTime(today.year, today.month, today.day);
     final end = start.add(const Duration(days: 1));
+    final weekEnd = start.add(Duration(days: 8 - start.weekday));
 
     final rows = await db.query(
       'tasks',
@@ -100,6 +101,7 @@ class SqliteTaskRepository implements TaskRepository {
         AND (
           due_date_time IS NULL
           OR due_date_time < ?
+          OR (due_date_time >= ? AND due_date_time < ?)
           OR status = ?
         )
       ''',
@@ -107,6 +109,8 @@ class SqliteTaskRepository implements TaskRepository {
         TaskStatus.completed.name,
         TaskStatus.cancelled.name,
         AppDatabaseDateCodec.encodeDate(end),
+        AppDatabaseDateCodec.encodeDate(end),
+        AppDatabaseDateCodec.encodeDate(weekEnd),
         TaskStatus.postponed.name,
       ],
       orderBy: '''
@@ -126,6 +130,29 @@ class SqliteTaskRepository implements TaskRepository {
     );
 
     return rows.map(TaskMapper.fromMap).toList();
+  }
+
+  @override
+  Future<TaskItem?> findRepeatOccurrence({
+    required String repeatSeriesId,
+    required DateTime dueDateTime,
+  }) async {
+    final db = await database.database;
+    final rows = await db.query(
+      'tasks',
+      where: 'repeat_series_id = ? AND due_date_time = ?',
+      whereArgs: [
+        repeatSeriesId,
+        AppDatabaseDateCodec.encodeDate(dueDateTime),
+      ],
+      limit: 1,
+    );
+
+    if (rows.isEmpty) {
+      return null;
+    }
+
+    return TaskMapper.fromMap(rows.first);
   }
 
   @override

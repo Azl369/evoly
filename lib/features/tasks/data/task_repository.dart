@@ -12,6 +12,11 @@ abstract class TaskRepository {
 
   Future<List<TaskItem>> findCompletedToday(DateTime today);
 
+  Future<TaskItem?> findRepeatOccurrence({
+    required String repeatSeriesId,
+    required DateTime dueDateTime,
+  });
+
   Future<void> save(TaskItem task);
 
   Future<void> reorderWithinPriority({

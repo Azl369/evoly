@@ -142,7 +142,7 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: "8fd18232272444f8773dc6757ec470c100b3b792"
+      resolved-ref: a3e8e1c4b57a9c8fb59cb1045d1f5c0ab1b067b2
       url: "git@github.com-evoly:Azl369/evoly-markdown-music-preview.git"
     source: git
     version: "0.1.0"

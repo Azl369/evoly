@@ -142,6 +142,21 @@ void main() {
     );
     expect(find.text('已延期 昨天 23:59'), findsOneWidget);
   });
+
+  testWidgets('shows weekly repeat metadata', (tester) async {
+    await _pumpTaskCard(
+      tester,
+      TaskCard(
+        task: _task().copyWith(
+          repeatRule: TaskRepeatRule.weekly,
+          repeatSeriesId: 'series-1',
+        ),
+      ),
+    );
+
+    expect(find.text('每周'), findsOneWidget);
+    expect(find.byIcon(Icons.event_repeat_rounded), findsOneWidget);
+  });
 }
 
 Future<void> _pumpTaskCard(WidgetTester tester, Widget child) {

@@ -18,6 +18,7 @@
 | Windows 数据库 | `%APPDATA%\Evoly\evoly.db` |
 | Windows 构建产物 | `build\windows\x64\runner\Release\evoly.exe` |
 | Android debug APK | `build\app\outputs\flutter-apk\app-debug.apk` |
+| 测试版本目录 | `build\test_releases` |
 
 原则：新 SDK、缓存、安装包、开发库优先放 D 盘。Visual Studio Build Tools 目前是既有 C 盘安装，ATL 已补齐。
 
@@ -385,11 +386,31 @@ $env:PUB_HOSTED_URL='https://pub.flutter-io.cn'
 $env:SUPABASE_URL='https://qsyvkpydllbzjepctovi.supabase.co'
 $env:SUPABASE_PUBLISHABLE_KEY='sb_publishable_dkkDieAkwCX7RmyEqIHRpA_1_KA1Fr8'
 
+$testReleaseRoot='build\test_releases'
+$version = ((Select-String -Path pubspec.yaml -Pattern '^version:' | Select-Object -First 1).Line -replace '^version:\s*','').Trim()
+$stamp = Get-Date -Format 'yyyyMMdd-HHmm'
+$testReleaseName = "evoly-$version-test-sync-$stamp"
+$testReleaseDir = Join-Path $testReleaseRoot $testReleaseName
+New-Item -ItemType Directory -Force -Path $testReleaseDir | Out-Null
+
 flutter build apk --release `
   --dart-define=SUPABASE_URL=$env:SUPABASE_URL `
   --dart-define=SUPABASE_PUBLISHABLE_KEY=$env:SUPABASE_PUBLISHABLE_KEY
+Copy-Item `
+  -LiteralPath 'build\app\outputs\flutter-apk\app-release.apk' `
+  -Destination (Join-Path $testReleaseDir "$testReleaseName.apk") `
+  -Force
 
 flutter build windows `
   --dart-define=SUPABASE_URL=$env:SUPABASE_URL `
   --dart-define=SUPABASE_PUBLISHABLE_KEY=$env:SUPABASE_PUBLISHABLE_KEY
+
+$windowsZip = Join-Path $testReleaseDir "$testReleaseName-windows.zip"
+if (Test-Path -LiteralPath $windowsZip) {
+  Remove-Item -LiteralPath $windowsZip -Force
+}
+Compress-Archive `
+  -Path 'build\windows\x64\runner\Release\*' `
+  -DestinationPath $windowsZip `
+  -Force
 ```

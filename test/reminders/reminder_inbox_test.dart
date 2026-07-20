@@ -124,6 +124,17 @@ class _FakeTaskRepository implements TaskRepository {
       tasks.where((task) => task.status == TaskStatus.completed).toList();
 
   @override
+  Future<TaskItem?> findRepeatOccurrence({
+    required String repeatSeriesId,
+    required DateTime dueDateTime,
+  }) async {
+    return tasks.where((task) {
+      return task.repeatSeriesId == repeatSeriesId &&
+          task.dueDateTime == dueDateTime;
+    }).firstOrNull;
+  }
+
+  @override
   Future<void> save(TaskItem task) async {}
 
   @override

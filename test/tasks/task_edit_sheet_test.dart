@@ -253,6 +253,101 @@ void main() {
     expect(savedReminder?.remindAt, reminder.remindAt);
     expect(savedReminder?.repeatRule, RepeatRule.none);
   });
+
+  testWidgets('sets weekly repeat only when a due date exists', (tester) async {
+    final now = DateTime(2026, 1, 1, 9);
+    final dueDateTime = DateTime.now().add(const Duration(days: 1));
+    final task = TaskItem(
+      id: 'task-1',
+      goalId: 'goal-1',
+      title: '每周检查',
+      priority: Priority.medium,
+      status: TaskStatus.pending,
+      estimatedMinutes: 30,
+      dueDateTime: dueDateTime,
+      createdAt: now,
+      updatedAt: now,
+    );
+    TaskItem? savedTask;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TaskEditSheet(
+            title: '编辑任务',
+            task: task,
+            reminder: null,
+            onSave: (updatedTask, _) async {
+              savedTask = updatedTask;
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(_chipWithText('每周重复'));
+    await tester.tap(_chipWithText('每周重复'));
+    await tester.pumpAndSettle();
+
+    final doneButton = find.ancestor(
+      of: find.text('完成'),
+      matching: find.byType(FilledButton),
+    );
+    await tester.ensureVisible(doneButton);
+    await tester.tap(doneButton);
+    await tester.pumpAndSettle();
+
+    expect(savedTask?.repeatRule, TaskRepeatRule.weekly);
+    expect(savedTask?.repeatSeriesId, task.id);
+  });
+
+  testWidgets('does not enable weekly repeat without a due date',
+      (tester) async {
+    final now = DateTime(2026, 1, 1, 9);
+    final task = TaskItem(
+      id: 'task-1',
+      goalId: 'goal-1',
+      title: '无截止重复',
+      priority: Priority.medium,
+      status: TaskStatus.pending,
+      estimatedMinutes: 30,
+      createdAt: now,
+      updatedAt: now,
+    );
+    TaskItem? savedTask;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TaskEditSheet(
+            title: '编辑任务',
+            task: task,
+            reminder: null,
+            onSave: (updatedTask, _) async {
+              savedTask = updatedTask;
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(_chipWithText('每周重复'));
+    await tester.tap(_chipWithText('每周重复'));
+    await tester.pumpAndSettle();
+
+    final doneButton = find.ancestor(
+      of: find.text('完成'),
+      matching: find.byType(FilledButton),
+    );
+    await tester.ensureVisible(doneButton);
+    await tester.tap(doneButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('每周重复需要先选择截止时间'), findsOneWidget);
+    expect(savedTask, isNull);
+  });
 }
 
 Finder _chipWithText(String text) {

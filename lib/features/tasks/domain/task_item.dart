@@ -7,6 +7,20 @@ enum TaskStatus {
   cancelled,
 }
 
+enum TaskRepeatRule {
+  none,
+  weekly,
+}
+
+extension TaskRepeatRuleLabel on TaskRepeatRule {
+  String get label {
+    return switch (this) {
+      TaskRepeatRule.none => '不重复',
+      TaskRepeatRule.weekly => '每周重复',
+    };
+  }
+}
+
 extension TaskStatusLabel on TaskStatus {
   String get label {
     return switch (this) {
@@ -32,6 +46,8 @@ class TaskItem {
     this.estimatedMinutes = 0,
     this.dueDateTime,
     this.completedAt,
+    this.repeatRule = TaskRepeatRule.none,
+    this.repeatSeriesId,
   });
 
   final String id;
@@ -43,6 +59,8 @@ class TaskItem {
   final int estimatedMinutes;
   final DateTime? dueDateTime;
   final DateTime? completedAt;
+  final TaskRepeatRule repeatRule;
+  final String? repeatSeriesId;
   final DateTime createdAt;
   final DateTime updatedAt;
   final int sortOrder;
@@ -80,10 +98,13 @@ class TaskItem {
     int? estimatedMinutes,
     DateTime? dueDateTime,
     DateTime? completedAt,
+    TaskRepeatRule? repeatRule,
+    String? repeatSeriesId,
     DateTime? updatedAt,
     int? sortOrder,
     bool clearDueDateTime = false,
     bool clearCompletedAt = false,
+    bool clearRepeatSeriesId = false,
   }) {
     return TaskItem(
       id: id,
@@ -95,6 +116,9 @@ class TaskItem {
       estimatedMinutes: estimatedMinutes ?? this.estimatedMinutes,
       dueDateTime: clearDueDateTime ? null : dueDateTime ?? this.dueDateTime,
       completedAt: clearCompletedAt ? null : completedAt ?? this.completedAt,
+      repeatRule: repeatRule ?? this.repeatRule,
+      repeatSeriesId:
+          clearRepeatSeriesId ? null : repeatSeriesId ?? this.repeatSeriesId,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       sortOrder: sortOrder ?? this.sortOrder,

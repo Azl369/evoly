@@ -10,9 +10,49 @@ class SafeMarkdownMusicSupport {
     return [SafeMarkdownMusicBlockSyntax()];
   }
 
-  static Map<String, MarkdownElementBuilder> builders() {
-    return MarkdownMusicSupport.builders().map(
-      (tag, builder) => MapEntry(tag, _BlockTextDrainBuilder(builder)),
+  static Map<String, MarkdownElementBuilder> builders({
+    AlignmentGeometry? blockAlignment,
+    double? maxBlockWidth,
+    ChordProCustomChordTap? onCustomChordTap,
+  }) {
+    final builders = MarkdownMusicSupport.builders();
+    if (onCustomChordTap != null) {
+      builders['evoly-music-chordpro'] = _ChordProBlockBuilder(
+        onCustomChordTap: onCustomChordTap,
+      );
+    }
+
+    return builders.map(
+      (tag, builder) => MapEntry(
+        tag,
+        _BlockTextDrainBuilder(
+          builder,
+          blockAlignment: blockAlignment,
+          maxBlockWidth: maxBlockWidth,
+        ),
+      ),
+    );
+  }
+}
+
+class _ChordProBlockBuilder extends MarkdownElementBuilder {
+  _ChordProBlockBuilder({required this.onCustomChordTap});
+
+  final ChordProCustomChordTap onCustomChordTap;
+
+  @override
+  bool isBlockElement() => true;
+
+  @override
+  Widget visitElementAfterWithContext(
+    BuildContext context,
+    md.Element element,
+    TextStyle? preferredStyle,
+    TextStyle? parentStyle,
+  ) {
+    return ChordProView(
+      source: element.textContent,
+      onCustomChordTap: onCustomChordTap,
     );
   }
 }
@@ -95,9 +135,15 @@ class SafeMarkdownMusicBlockSyntax extends md.BlockSyntax {
 }
 
 class _BlockTextDrainBuilder extends MarkdownElementBuilder {
-  _BlockTextDrainBuilder(this.delegate);
+  _BlockTextDrainBuilder(
+    this.delegate, {
+    this.blockAlignment,
+    this.maxBlockWidth,
+  });
 
   final MarkdownElementBuilder delegate;
+  final AlignmentGeometry? blockAlignment;
+  final double? maxBlockWidth;
 
   @override
   bool isBlockElement() => true;
@@ -119,11 +165,35 @@ class _BlockTextDrainBuilder extends MarkdownElementBuilder {
     TextStyle? preferredStyle,
     TextStyle? parentStyle,
   ) {
-    return delegate.visitElementAfterWithContext(
+    final child = delegate.visitElementAfterWithContext(
       context,
       element,
       preferredStyle,
       parentStyle,
     );
+
+    final alignment = blockAlignment;
+    final width = maxBlockWidth;
+
+    if (child == null || (alignment == null && width == null)) {
+      return child;
+    }
+
+    Widget wrapped = child;
+    if (width != null) {
+      wrapped = ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: width),
+        child: wrapped,
+      );
+    }
+
+    if (alignment != null) {
+      wrapped = Align(
+        alignment: alignment,
+        child: wrapped,
+      );
+    }
+
+    return wrapped;
   }
 }

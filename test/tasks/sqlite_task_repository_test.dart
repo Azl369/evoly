@@ -72,9 +72,18 @@ void main() {
       taskRepository.save(
         _task(
           id: 'future',
-          title: '未来任务',
+          title: '本周未来任务',
           priority: Priority.high,
           dueDateTime: DateTime(2026, 7, 7, 9),
+          now: now,
+        ),
+      ),
+      taskRepository.save(
+        _task(
+          id: 'next-week',
+          title: '下周任务',
+          priority: Priority.high,
+          dueDateTime: DateTime(2026, 7, 13, 9),
           now: now,
         ),
       ),
@@ -113,10 +122,60 @@ void main() {
 
     expect(results.map((task) => task.id), [
       'overdue',
+      'future',
       'postponed-future',
       'today',
       'long-running',
     ]);
+  });
+
+  test('findRepeatOccurrence returns task for a series and due time', () async {
+    final directory = await Directory.systemTemp.createTemp('evoly-tasks-');
+    final database = AppDatabase.testing(p.join(directory.path, 'evoly.db'));
+    final goalRepository = SqliteGoalRepository(database);
+    final taskRepository = SqliteTaskRepository(database);
+    final db = await database.database;
+    await db.delete('tasks');
+    await db.delete('goals');
+    addTearDown(() async {
+      await database.close();
+      if (directory.existsSync()) {
+        directory.deleteSync(recursive: true);
+      }
+    });
+
+    final now = DateTime(2026, 7, 6, 10);
+    final dueDateTime = DateTime(2026, 7, 8, 20);
+    await goalRepository.save(
+      Goal(
+        id: 'goal-plan',
+        title: '重复任务测试项目',
+        type: GoalType.longTerm,
+        priority: Priority.high,
+        status: GoalStatus.inProgress,
+        startDate: now,
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+    await taskRepository.save(
+      _task(
+        id: 'weekly',
+        title: '每周复盘',
+        priority: Priority.medium,
+        dueDateTime: dueDateTime,
+        repeatRule: TaskRepeatRule.weekly,
+        repeatSeriesId: 'series-1',
+        now: now,
+      ),
+    );
+
+    final result = await taskRepository.findRepeatOccurrence(
+      repeatSeriesId: 'series-1',
+      dueDateTime: dueDateTime,
+    );
+
+    expect(result?.id, 'weekly');
   });
 
   test('findCompletedToday returns tasks completed during the current day',
@@ -298,6 +357,8 @@ TaskItem _task({
   DateTime? dueDateTime,
   DateTime? completedAt,
   int sortOrder = 0,
+  TaskRepeatRule repeatRule = TaskRepeatRule.none,
+  String? repeatSeriesId,
 }) {
   return TaskItem(
     id: id,
@@ -311,5 +372,7 @@ TaskItem _task({
     createdAt: now,
     updatedAt: now,
     sortOrder: sortOrder,
+    repeatRule: repeatRule,
+    repeatSeriesId: repeatSeriesId,
   );
 }

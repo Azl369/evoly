@@ -7,6 +7,9 @@ should travel with the Evoly repository.
 
 - `evoly-dev-environment/` - Evoly development environment, Flutter build,
   Android debugging, Windows build, and D-drive tooling rules.
+- `evoly-android-edit-performance/` - Android real-device edit-mode,
+  keyboard, bottom-sheet, and heavy-list performance diagnosis and fix
+  playbook for Evoly.
 - `openmontage/` - OpenMontage video-production skill pack, fixed as local
   references for montage, video workflows, prompts, editing, composition,
   subtitles, audio, and media review.

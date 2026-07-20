@@ -20,6 +20,7 @@ import 'package:evoly/features/reminders/application/task_reminder_service.dart'
 import 'package:evoly/features/reminders/data/reminder_repository.dart';
 import 'package:evoly/features/reminders/domain/reminder.dart';
 import 'package:evoly/features/tasks/data/task_repository.dart';
+import 'package:evoly/features/tasks/application/task_recurrence_service.dart';
 import 'package:evoly/features/tasks/domain/task_item.dart';
 import 'package:evoly/features/today/presentation/today_page.dart';
 import 'package:evoly/services/notification_service.dart';
@@ -574,6 +575,60 @@ void main() {
     expect(find.text('长期推进的无截止任务'), findsOneWidget);
     expect(find.text('今天已完成'), findsOneWidget);
     expect(find.text('已经完成的无截止任务'), findsOneWidget);
+  });
+
+  testWidgets('shows future tasks due this week in a compact plan section',
+      (tester) async {
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final tomorrowTask = _planTask(
+      id: 'tomorrow',
+      title: '明天检查同步状态',
+      priority: Priority.medium,
+      now: now,
+      dueDateTime: todayStart.add(const Duration(days: 1, hours: 18)),
+    );
+    final laterThisWeekTask = _planTask(
+      id: 'later-this-week',
+      title: '本周整理重复任务复盘',
+      priority: Priority.high,
+      now: now,
+      dueDateTime: todayStart.add(Duration(days: 7 - now.weekday, hours: 16)),
+    );
+    final nextWeekTask = _planTask(
+      id: 'next-week',
+      title: '下周才到期的任务',
+      priority: Priority.high,
+      now: now,
+      dueDateTime: todayStart.add(Duration(days: 8 - now.weekday, hours: 9)),
+    );
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: _providersFor(
+          taskRepository: _FakeTaskRepository([
+            tomorrowTask,
+            laterThisWeekTask,
+            nextWeekTask,
+          ]),
+          coachContext: const CoachTodayContext(
+            todayTasks: [],
+            delayedGoalStats: [],
+          ),
+        ),
+        child: const MaterialApp(home: TodayPage()),
+      ),
+    );
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.text('2 本周待办'), findsOneWidget);
+    await tester.drag(find.byType(ListView), const Offset(0, -420));
+    await tester.pump();
+
+    expect(find.text('本周待办'), findsOneWidget);
+    expect(find.text('明天检查同步状态'), findsWidgets);
+    expect(find.text('本周整理重复任务复盘'), findsWidgets);
+    expect(find.text('下周才到期的任务'), findsNothing);
   });
 
   testWidgets('groups due tasks by priority in plan', (tester) async {
@@ -1252,6 +1307,11 @@ List<SingleChildWidget> _providersFor({
         value: desktopWindowController,
       ),
     Provider<TaskRepository>.value(value: taskRepository),
+    Provider<TaskRecurrenceService>(
+      create: (context) => TaskRecurrenceService(
+        context.read<TaskRepository>(),
+      ),
+    ),
     Provider<GoalRepository>.value(
         value: goalRepository ?? _FakeGoalRepository()),
     Provider<DocumentRepository>.value(value: _FakeDocumentRepository()),
@@ -1435,6 +1495,7 @@ class _FakeTaskRepository implements TaskRepository {
   Future<List<TaskItem>> findPlanningCandidates(DateTime today) async {
     final start = DateTime(today.year, today.month, today.day);
     final end = start.add(const Duration(days: 1));
+    final weekEnd = start.add(Duration(days: 8 - start.weekday));
 
     return tasks.where((task) {
       if (task.status == TaskStatus.completed ||
@@ -1445,7 +1506,8 @@ class _FakeTaskRepository implements TaskRepository {
       final dueDateTime = task.dueDateTime;
       return task.status == TaskStatus.postponed ||
           dueDateTime == null ||
-          dueDateTime.isBefore(end);
+          dueDateTime.isBefore(end) ||
+          (!dueDateTime.isBefore(end) && dueDateTime.isBefore(weekEnd));
     }).toList();
   }
 
@@ -1461,6 +1523,17 @@ class _FakeTaskRepository implements TaskRepository {
           !completedAt.isBefore(start) &&
           completedAt.isBefore(end);
     }).toList();
+  }
+
+  @override
+  Future<TaskItem?> findRepeatOccurrence({
+    required String repeatSeriesId,
+    required DateTime dueDateTime,
+  }) async {
+    return tasks.where((task) {
+      return task.repeatSeriesId == repeatSeriesId &&
+          task.dueDateTime == dueDateTime;
+    }).firstOrNull;
   }
 
   @override

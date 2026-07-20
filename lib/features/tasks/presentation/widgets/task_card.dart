@@ -110,6 +110,13 @@ class TaskCard extends StatelessWidget {
               ),
               icon: Icons.schedule_outlined,
             ),
+          if (task.repeatRule == TaskRepeatRule.weekly)
+            AppMetaPill(
+              label: '每周',
+              icon: Icons.event_repeat_rounded,
+              color: tokens.statusInfo,
+              selected: true,
+            ),
           if (task.completedAt != null)
             AppMetaPill(
               label: '完成 ${_formatTime(task.completedAt!)}',

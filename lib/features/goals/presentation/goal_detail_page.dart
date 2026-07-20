@@ -15,6 +15,7 @@ import 'package:evoly/features/goals/presentation/widgets/goal_edit_sheet.dart';
 import 'package:evoly/features/reminders/application/task_reminder_service.dart';
 import 'package:evoly/features/reminders/presentation/task_reminder_picker.dart';
 import 'package:evoly/features/tasks/data/task_repository.dart';
+import 'package:evoly/features/tasks/application/task_recurrence_service.dart';
 import 'package:evoly/features/tasks/domain/task_item.dart';
 import 'package:evoly/features/tasks/presentation/widgets/task_card.dart';
 import 'package:evoly/features/tasks/presentation/widgets/task_create_sheet.dart';
@@ -158,11 +159,11 @@ class _GoalDetailPageState extends State<GoalDetailPage>
                   onOpenFolder: _openGoalFolder,
                 ),
                 AppSectionHeader(
-                  title: '瀛愪换鍔?',
+                  title: '子任务',
                   trailing: TextButton.icon(
                     onPressed: _showCreateTaskSheet,
                     icon: const Icon(Icons.add_rounded),
-                    label: const Text('鏂板'),
+                    label: const Text('新增'),
                   ),
                   padding: EdgeInsets.zero,
                 ),
@@ -542,19 +543,17 @@ class _GoalDetailPageState extends State<GoalDetailPage>
 
   Future<void> _completeTask(TaskItem task) async {
     final reminderService = context.read<TaskReminderService>();
+    final recurrenceService = context.read<TaskRecurrenceService>();
     final now = DateTime.now();
-    await _updateTask(
-      task,
-      task.copyWith(
-        status: TaskStatus.completed,
-        completedAt: now,
-        updatedAt: now,
-      ),
-    );
+    await recurrenceService.complete(task, now);
     await reminderService.saveForTask(
       taskId: task.id,
       remindAt: null,
     );
+    await _loadDetail();
+    if (mounted) {
+      notifyDataChanged();
+    }
   }
 
   Future<void> _postponeTask(TaskItem task) async {

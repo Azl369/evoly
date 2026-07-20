@@ -48,7 +48,7 @@ class AppDatabase {
     _database = await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 6,
+        version: 7,
         onCreate: _createSchema,
         onUpgrade: _upgradeSchema,
         onOpen: _enableForeignKeys,
@@ -117,6 +117,8 @@ class AppDatabase {
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         sort_order INTEGER NOT NULL DEFAULT 0,
+        repeat_rule TEXT NOT NULL DEFAULT 'none',
+        repeat_series_id TEXT,
         FOREIGN KEY(goal_id) REFERENCES goals(id) ON DELETE CASCADE
       )
     ''');
@@ -127,6 +129,9 @@ class AppDatabase {
     await db.execute('CREATE INDEX idx_tasks_status ON tasks(status)');
     await db.execute('CREATE INDEX idx_tasks_priority ON tasks(priority)');
     await db.execute('CREATE INDEX idx_tasks_sort_order ON tasks(sort_order)');
+    await db.execute(
+      'CREATE INDEX idx_tasks_repeat_series ON tasks(repeat_series_id, due_date_time)',
+    );
 
     await _createRemindersSchema(db);
     await _createDocumentsSchema(db);
@@ -153,6 +158,9 @@ class AppDatabase {
     if (oldVersion < 6) {
       await _ensureTaskSortOrderSchema(db);
     }
+    if (oldVersion < 7) {
+      await _ensureTaskRepeatSchema(db);
+    }
   }
 
   Future<void> _ensureTaskSortOrderSchema(Database db) async {
@@ -173,6 +181,24 @@ class AppDatabase {
       SET sort_order = created_at
       WHERE sort_order = 0
     ''');
+  }
+
+  Future<void> _ensureTaskRepeatSchema(Database db) async {
+    final columns = await db.rawQuery('PRAGMA table_info(tasks)');
+    final columnNames = columns.map((column) => column['name']).toSet();
+    if (!columnNames.contains('repeat_rule')) {
+      await db.execute(
+        "ALTER TABLE tasks ADD COLUMN repeat_rule TEXT NOT NULL DEFAULT 'none'",
+      );
+    }
+    if (!columnNames.contains('repeat_series_id')) {
+      await db.execute('ALTER TABLE tasks ADD COLUMN repeat_series_id TEXT');
+    }
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_tasks_repeat_series '
+      'ON tasks(repeat_series_id, due_date_time)',
+    );
   }
 
   Future<void> _createRemindersSchema(Database db) async {

@@ -36,6 +36,7 @@ import 'package:evoly/features/sync/data/sqlite_sync_outbox_repository.dart';
 import 'package:evoly/features/sync/data/sqlite_sync_state_repository.dart';
 import 'package:evoly/features/tasks/data/sqlite_task_repository.dart';
 import 'package:evoly/features/tasks/data/task_repository.dart';
+import 'package:evoly/features/tasks/application/task_recurrence_service.dart';
 import 'package:evoly/services/background_task_service.dart';
 import 'package:evoly/services/background_task_service_factory.dart';
 import 'package:evoly/services/notification_service.dart';
@@ -133,6 +134,10 @@ class AppDependencies extends StatelessWidget {
             context.read<AppDatabase>(),
             changeRecorder: context.read<SyncChangeRecorder>(),
           ),
+        ),
+        Provider<TaskRecurrenceService>(
+          create: (context) =>
+              TaskRecurrenceService(context.read<TaskRepository>()),
         ),
         Provider<DocumentRepository>(
           create: (context) => SqliteDocumentRepository(

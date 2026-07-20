@@ -46,6 +46,7 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
 
   late Priority _selectedPriority;
   late TaskStatus _selectedStatus;
+  late TaskRepeatRule _selectedRepeatRule;
   late String _selectedGoalId;
   DateTime? _selectedDueDateTime;
   late TaskReminderSelection _selectedReminder;
@@ -68,6 +69,7 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
     _selectedGoalId = _task.goalId;
     _selectedPriority = _task.priority;
     _selectedStatus = _task.effectiveStatus(DateTime.now());
+    _selectedRepeatRule = _task.repeatRule;
     _selectedDueDateTime = _task.dueDateTime;
     _selectedReminder = TaskReminderSelection.fromReminder(widget.reminder);
     _lastSavedSignature = _signatureFor(_task, _selectedReminder);
@@ -159,10 +161,26 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
               dueDateTime: _selectedDueDateTime,
               customPicker: widget.customDueDateTimePicker,
               onChanged: (value) {
-                setState(() => _selectedDueDateTime = value);
+                setState(() {
+                  _selectedDueDateTime = value;
+                  if (value == null &&
+                      _selectedRepeatRule == TaskRepeatRule.weekly) {
+                    _selectedRepeatRule = TaskRepeatRule.none;
+                    _saveError = '每周重复需要先选择截止时间';
+                  }
+                });
                 _scheduleSave();
               },
             ),
+          ),
+          _TaskOptionGroup<TaskRepeatRule>(
+            label: '重复',
+            values: const [TaskRepeatRule.none, TaskRepeatRule.weekly],
+            value: _selectedRepeatRule,
+            labelBuilder: (repeatRule) => repeatRule.label,
+            iconBuilder: (_) => Icons.event_repeat_rounded,
+            colorBuilder: _repeatRuleColor,
+            onChanged: _changeRepeatRule,
           ),
           AppField(
             label: '提醒',
@@ -225,6 +243,20 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
     }
 
     setState(() => _selectedStatus = status);
+    _scheduleSave();
+  }
+
+  void _changeRepeatRule(TaskRepeatRule repeatRule) {
+    if (repeatRule == _selectedRepeatRule) {
+      return;
+    }
+
+    if (repeatRule == TaskRepeatRule.weekly && _selectedDueDateTime == null) {
+      setState(() => _saveError = '每周重复需要先选择截止时间');
+      return;
+    }
+
+    setState(() => _selectedRepeatRule = repeatRule);
     _scheduleSave();
   }
 
@@ -300,8 +332,13 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
       completedAt: _selectedStatus == TaskStatus.completed
           ? _task.completedAt ?? now
           : null,
+      repeatRule: _selectedRepeatRule,
+      repeatSeriesId: _selectedRepeatRule == TaskRepeatRule.weekly
+          ? _task.repeatSeriesId ?? _task.id
+          : null,
       clearDueDateTime: _selectedDueDateTime == null,
       clearCompletedAt: _selectedStatus != TaskStatus.completed,
+      clearRepeatSeriesId: _selectedRepeatRule == TaskRepeatRule.none,
       updatedAt: now,
     );
   }
@@ -324,12 +361,23 @@ class _TaskEditSheetState extends State<TaskEditSheet> {
       task.description,
       task.priority.name,
       task.status.name,
+      task.repeatRule.name,
+      task.repeatSeriesId,
       task.estimatedMinutes,
       task.dueDateTime?.millisecondsSinceEpoch,
       task.completedAt?.millisecondsSinceEpoch,
       reminder.remindAt?.millisecondsSinceEpoch,
       reminder.repeatRule.name,
     ].join('|');
+  }
+
+  Color _repeatRuleColor(BuildContext context, TaskRepeatRule repeatRule) {
+    final tokens = EvolyDesignTokens.of(context);
+
+    return switch (repeatRule) {
+      TaskRepeatRule.none => tokens.statusNeutral,
+      TaskRepeatRule.weekly => tokens.statusInfo,
+    };
   }
 
   Color _priorityColor(BuildContext context, Priority priority) {

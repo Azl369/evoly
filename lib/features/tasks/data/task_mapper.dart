@@ -18,6 +18,10 @@ class TaskMapper {
       createdAt: AppDatabaseDateCodec.decodeDate(map['created_at']!),
       updatedAt: AppDatabaseDateCodec.decodeDate(map['updated_at']!),
       sortOrder: map['sort_order'] as int? ?? 0,
+      repeatRule: TaskRepeatRule.values.byName(
+        map['repeat_rule'] as String? ?? TaskRepeatRule.none.name,
+      ),
+      repeatSeriesId: map['repeat_series_id'] as String?,
     );
   }
 
@@ -39,6 +43,8 @@ class TaskMapper {
       'created_at': AppDatabaseDateCodec.encodeDate(task.createdAt),
       'updated_at': AppDatabaseDateCodec.encodeDate(task.updatedAt),
       'sort_order': task.sortOrder,
+      'repeat_rule': task.repeatRule.name,
+      'repeat_series_id': task.repeatSeriesId,
     };
   }
 }

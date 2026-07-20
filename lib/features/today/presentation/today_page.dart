@@ -16,6 +16,7 @@ import 'package:evoly/features/reminders/application/reminder_inbox.dart';
 import 'package:evoly/features/reminders/application/task_reminder_service.dart';
 import 'package:evoly/features/sync/presentation/sync_refresh_indicator.dart';
 import 'package:evoly/features/tasks/data/task_repository.dart';
+import 'package:evoly/features/tasks/application/task_recurrence_service.dart';
 import 'package:evoly/features/tasks/domain/task_item.dart';
 import 'package:evoly/features/tasks/presentation/widgets/task_card.dart';
 import 'package:evoly/features/tasks/presentation/widgets/task_edit_sheet.dart';
@@ -375,6 +376,9 @@ class _TodayPageState extends State<TodayPage>
     final dueCount = pendingTasks.where((task) {
       return _belongsToDueSection(task, now);
     }).length;
+    final weekCount = pendingTasks.where((task) {
+      return _belongsToWeekSection(task, now);
+    }).length;
     final unscheduledCount =
         pendingTasks.where((task) => task.dueDateTime == null).length;
 
@@ -436,6 +440,12 @@ class _TodayPageState extends State<TodayPage>
                       icon: Icons.event_available_outlined,
                       color: tokens.statusWarning,
                       selected: dueCount > 0,
+                    ),
+                    AppMetaPill(
+                      label: '$weekCount 本周待办',
+                      icon: Icons.event_note_outlined,
+                      color: tokens.statusInfo,
+                      selected: weekCount > 0,
                     ),
                     AppMetaPill(
                       label: '$unscheduledCount 待安排',
@@ -718,6 +728,10 @@ class _TodayPageState extends State<TodayPage>
         pending.where((task) => _belongsToDelayedSection(task, now)).toList();
     final dueTasks =
         pending.where((task) => _belongsToDueSection(task, now)).toList();
+    final weekTasks = pending
+        .where((task) => _belongsToWeekSection(task, now))
+        .toList()
+      ..sort(_compareWeekTask);
     final unscheduledTasks = pending
         .where(
           (task) =>
@@ -746,6 +760,14 @@ class _TodayPageState extends State<TodayPage>
         ),
         ..._priorityGroups(dueTasks, sectionId: 'due'),
       ],
+      if (weekTasks.isNotEmpty)
+        _TaskGroup(
+          id: 'week',
+          title: '本周待办',
+          subtitle: '今天之后、本周内到期的任务',
+          tasks: weekTasks,
+          section: true,
+        ),
       if (unscheduledTasks.isNotEmpty)
         const _TaskGroup(
           id: 'unscheduled',
@@ -876,6 +898,22 @@ class _TodayPageState extends State<TodayPage>
     return !dueDate.isBefore(start) && dueDate.isBefore(end);
   }
 
+  bool _belongsToWeekSection(TaskItem task, DateTime now) {
+    if (task.effectiveStatus(now) == TaskStatus.postponed) {
+      return false;
+    }
+
+    final dueDate = task.dueDateTime;
+    if (dueDate == null) {
+      return false;
+    }
+
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final tomorrowStart = todayStart.add(const Duration(days: 1));
+    final weekEnd = todayStart.add(Duration(days: 8 - todayStart.weekday));
+    return !dueDate.isBefore(tomorrowStart) && dueDate.isBefore(weekEnd);
+  }
+
   bool _belongsToPlan(TaskItem task, DateTime now) {
     if (task.status == TaskStatus.cancelled) {
       return false;
@@ -887,7 +925,29 @@ class _TodayPageState extends State<TodayPage>
 
     return task.dueDateTime == null ||
         _belongsToDelayedSection(task, now) ||
-        _belongsToDueSection(task, now);
+        _belongsToDueSection(task, now) ||
+        _belongsToWeekSection(task, now);
+  }
+
+  int _compareWeekTask(TaskItem left, TaskItem right) {
+    final dateCompare =
+        _compareNullableDate(left.dueDateTime, right.dueDateTime);
+    if (dateCompare != 0) {
+      return dateCompare;
+    }
+
+    final priorityCompare =
+        right.priority.weight.compareTo(left.priority.weight);
+    if (priorityCompare != 0) {
+      return priorityCompare;
+    }
+
+    final sortOrderCompare = left.sortOrder.compareTo(right.sortOrder);
+    if (sortOrderCompare != 0) {
+      return sortOrderCompare;
+    }
+
+    return left.createdAt.compareTo(right.createdAt);
   }
 
   bool _isCompletedToday(TaskItem task, DateTime now) {
@@ -1111,19 +1171,37 @@ class _TodayPageState extends State<TodayPage>
 
   Future<void> _complete(TaskItem task) async {
     final reminderService = context.read<TaskReminderService>();
+    final recurrenceService = context.read<TaskRecurrenceService>();
     final now = DateTime.now();
-    await _updateTask(
-      task,
-      task.copyWith(
-        status: TaskStatus.completed,
-        completedAt: now,
-        updatedAt: now,
-      ),
-    );
+    final result = await recurrenceService.complete(task, now);
+    await _replaceCompletedTask(task, result.completedTask);
     await reminderService.saveForTask(
       taskId: task.id,
       remindAt: null,
     );
+    await _loadTasks();
+    if (mounted) {
+      notifyDataChanged();
+    }
+  }
+
+  Future<void> _replaceCompletedTask(
+    TaskItem oldTask,
+    TaskItem completedTask,
+  ) async {
+    final index = _tasks.indexWhere((task) => task.id == oldTask.id);
+    if (index == -1) {
+      return;
+    }
+
+    final now = DateTime.now();
+    setState(() {
+      if (_belongsToPlan(completedTask, now)) {
+        _tasks[index] = completedTask;
+      } else {
+        _tasks.removeAt(index);
+      }
+    });
   }
 
   Future<void> _postpone(TaskItem task) async {
